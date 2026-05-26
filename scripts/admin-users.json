@@ -1,0 +1,11 @@
+{
+  "users": [
+    {
+      "localId": "admin001",
+      "email": "admin@netconnect.app",
+      "emailVerified": true,
+      "passwordHash": "RaYOgyMt48C/67zCa9J3SfI80GM7VQLh92RdoDTTvuo=",
+      "displayName": "Admin"
+    }
+  ]
+}
