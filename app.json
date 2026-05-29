@@ -1,0 +1,109 @@
+{
+  "expo": {
+    "name": "Brahmin Connect",
+    "slug": "NetConnect",
+    "version": "4.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "bbcn",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2563EB"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.netconnect.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID for quick login",
+        "NSContactsUsageDescription": "Save business contacts to your phone",
+        "NSPhotoLibraryUsageDescription": "Upload business photos",
+        "NSCameraUsageDescription": "Take business photos"
+      }
+    },
+    "android": {
+      "versionCode": 4,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.netconnect.app",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          },
+          "android": {
+            "softwareKeyboardLayoutMode": "resize",
+            "enablePngCrunchInReleaseMode": false
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Brahmin Connect to access your photos for business gallery",
+          "cameraPermission": "Allow Brahmin Connect to use camera for business photos"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Brahmin Connect to scan event QR codes for attendance"
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Brahmin Connect to save business contacts"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Brahmin Connect to use Face ID for quick login"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2563EB"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "./plugins/withAdiRegistration"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fb43b211-a69e-4c62-ab93-f2406b71c6db"
+      }
+    }
+  }
+}
