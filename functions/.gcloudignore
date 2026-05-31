@@ -1,0 +1,6 @@
+# Exclude lock file so Cloud Build runs npm install (not npm ci) and avoids sync errors
+package-lock.json
+.git
+node_modules/.cache
+*.log
+README.md
