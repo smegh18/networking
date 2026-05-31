@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import { I18nextProvider } from 'react-i18next';
-import { View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Platform, useWindowDimensions, TouchableOpacity, Text } from 'react-native';
 import * as Font from 'expo-font';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -15,8 +15,6 @@ import { AppSplash } from './src/components/layout/AppSplash';
 import { useAuthInit } from './src/hooks/useAuthInit';
 import { useAuthStore } from './src/stores/authStore';
 
-const LoadingScreen = () => <AppSplash name="Brahmin Connect" />;
-
 export default function App() {
   useAuthInit();
   const isWeb = Platform.OS === 'web';
@@ -24,6 +22,7 @@ export default function App() {
   const authLoading = useAuthStore((s) => s.isLoading);
   const [isReady, setIsReady] = useState(false);
   const [isMinSplashDone, setIsMinSplashDone] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsMinSplashDone(true), isWeb ? 2500 : 3000);
@@ -33,21 +32,12 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        // Load icon fonts for web using their deployed URLs
-        if (isWeb) {
-          await Font.loadAsync({
-            'Ionicons': '/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf',
-            'MaterialIcons': '/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.4e85bc9ebe07e0340c9c4fc2f6c38908.ttf',
-            'MaterialCommunityIcons': '/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.6e435534bd35da5fef04168860a9b8fa.ttf',
-          });
-        } else {
-          // Load icon fonts correctly for all platforms
-          await Font.loadAsync({
-            ...Ionicons.font,
-            ...MaterialIcons.font,
-            ...MaterialCommunityIcons.font,
-          });
-        }
+        // Load icon fonts correctly for all platforms
+        await Font.loadAsync({
+          ...Ionicons.font,
+          ...MaterialIcons.font,
+          ...MaterialCommunityIcons.font,
+        });
 
         // Wait for i18n to be initialized (async language detection)
         if (!i18n.isInitialized) {
@@ -120,8 +110,19 @@ export default function App() {
     }
   }, [isWeb, width]);
 
-  if (!isReady || authLoading || !isMinSplashDone || !isLayoutStable) {
-    return <LoadingScreen />;
+  if (!devMode && (!isReady || authLoading || !isMinSplashDone || !isLayoutStable)) {
+    return (
+      <View style={styles.root}>
+        <AppSplash name="Brahmin Connect" />
+        <TouchableOpacity 
+          style={styles.devBypass} 
+          onPress={() => setDevMode(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.devBypassText}>Enter Dev Mode (Bypass Loading)</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const content = (
@@ -151,5 +152,19 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  devBypass: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  devBypassText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
 });
