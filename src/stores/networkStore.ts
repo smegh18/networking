@@ -1,7 +1,6 @@
 import { create } from 'zustand';
-import type { User, Chapter } from '../types';
-import { normalizeStringArray, normalizeTextLower } from '../utils/helpers';
 import type { User, Chapter, Zone } from '../types';
+import { normalizeStringArray, normalizeTextLower } from '../utils/helpers';
 
 
 interface NetworkFilters {

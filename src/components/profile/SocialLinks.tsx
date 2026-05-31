@@ -4,8 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, borderRadius, spacing } from '../../theme';
 import { Location, SocialLinks as SocialLinksType } from '../../types';
 import { formatBusinessMapAddress, openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
-import { SocialLinks as SocialLinksType } from '../../types';
-import { openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
 
 
 interface SocialLinksProps {

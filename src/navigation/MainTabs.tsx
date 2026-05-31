@@ -192,13 +192,13 @@ export const MainTabs: React.FC = () => {
             component={DashboardStack}
             options={{
               tabBarLabel: t('dashboard.title'),
-              listeners: ({ navigation }) => ({
-                tabPress: (e) => {
-                  e.preventDefault();
-                  navigation.navigate('DashboardTab', { screen: 'Dashboard' });
-                },
-              }),
             }}
+            listeners={({ navigation }) => ({
+              tabPress: (e) => {
+                e.preventDefault();
+                navigation.navigate('DashboardTab', { screen: 'Dashboard' } as any);
+              },
+            })}
           />
           <Tab.Screen name="NetworkTab" component={NetworkStack} options={{ tabBarLabel: t('network.title') }} />
           <Tab.Screen
@@ -206,13 +206,13 @@ export const MainTabs: React.FC = () => {
             component={ProfileStack}
             options={{
               tabBarLabel: t('profile.title'),
-              listeners: ({ navigation }) => ({
-                tabPress: (e) => {
-                  e.preventDefault();
-                  navigation.navigate('ProfileTab', { screen: 'Profile' });
-                },
-              }),
             }}
+            listeners={({ navigation }) => ({
+              tabPress: (e) => {
+                e.preventDefault();
+                navigation.navigate('ProfileTab', { screen: 'Profile' } as any);
+              },
+            })}
           />
           <Tab.Screen name="MoreTab" component={MoreStack} options={{ tabBarLabel: t('more.title', 'More') }} />
         </Tab.Navigator>

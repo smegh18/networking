@@ -90,7 +90,7 @@ const AdminLoginScreen: React.FC<Props> = ({ navigation }) => {
           setError(t('auth.notAdminAccount', 'This account is not an admin. Use the regular login.'));
           return;
         }
-        const user: User = { ...(data as User), uid };
+        const user: User = { ...(data as unknown as User), uid };
         setUser(user);
         return;
       }

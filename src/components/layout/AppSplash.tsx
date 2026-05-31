@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
-import React, { useMemo } from 'react';
-import { StyleSheet, useWindowDimensions, View, Dimensions, Platform, Image } from 'react-native';
+import { Animated, Easing, StyleSheet, useWindowDimensions, View, Dimensions, Platform } from 'react-native';
 import { colors } from '../../theme';
 
 

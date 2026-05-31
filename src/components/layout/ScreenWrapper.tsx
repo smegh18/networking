@@ -1,5 +1,4 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView, Dimensions } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -13,7 +13,8 @@ import { useRealtimeCollection, useRealtimeRecord } from '../../hooks/useRealtim
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { shareToWhatsApp } from '../../utils/helpers';
 import { buildMemberPointsSummary } from '../../utils/memberPoints';
-import type { Ask, AdminStackParamList, Chapter, Event, Meeting, Referral, VisitorInvite, Business, User } from '../../types';
+import type { Ask, Chapter, Event, Meeting, Referral, VisitorInvite, Business, User } from '../../types';
+import type { AdminStackParamList } from '../types/admin';
 
 type Props = StackScreenProps<AdminStackParamList, 'AdminUserDetails'>;
 type ProfileTab = 'activity' | 'business';

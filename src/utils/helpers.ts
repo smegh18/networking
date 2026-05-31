@@ -112,3 +112,10 @@ export const formatBusinessMapAddress = (
     .join(', ');
 };
 
+export const normalizeText = (text: string): string => text.trim();
+export const normalizeTextLower = (text: string): string => text.trim().toLowerCase();
+export const normalizeStringArray = (arr: any): string[] => {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((item) => String(item).trim()).filter(Boolean);
+};
+

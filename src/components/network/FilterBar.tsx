@@ -65,7 +65,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 }) => {
   const dropdownMaxHeight = useDropdownMaxHeight(220);
   const selectedLabel = selectedValue
-    ? normalizeText(options.find((opt) => opt.value === selectedValue)?.label) || allLabel
+    ? normalizeText(options.find((opt) => opt.value === selectedValue)?.label || '') || allLabel
     : allLabel;
 
   const filteredOptions = useMemo(() => {

@@ -265,9 +265,9 @@ export interface BusinessConfig {
 export type Language = 'en' | 'hi' | 'gu';
 
 export type RootStackParamList = {
-  Auth: undefined;
-  Main: undefined;
-  Admin: undefined;
+  Auth: any;
+  Main: any;
+  Admin: any;
 };
 
 export type AuthStackParamList = {

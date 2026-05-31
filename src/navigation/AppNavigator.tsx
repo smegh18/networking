@@ -2,8 +2,6 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Linking from 'expo-linking';
-import React, { useState } from 'react';
-import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { RootStackParamList } from '../types';
@@ -48,7 +46,7 @@ const linking = {
       },
     },
   },
-} as const;
+};
 
 
 export const AppNavigator: React.FC = () => {
@@ -63,7 +61,7 @@ export const AppNavigator: React.FC = () => {
   useCurrentUserRealtime();
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer linking={linking as any}>
 
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (

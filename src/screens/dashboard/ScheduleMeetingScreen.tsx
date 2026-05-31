@@ -197,8 +197,6 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
             .map(([key, data]) => ({ ...(data as any), uid: key } as User))
             .filter((u) => (
               u.uid !== currentUser?.uid && u.role !== 'admin' && u.role !== 'superadmin'
-              && u.role !== 'admin'
-              && u.role !== 'superadmin'
               && normalizeText(u.name).length > 0
             ));
 

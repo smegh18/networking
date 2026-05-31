@@ -64,9 +64,10 @@ const buildFallbackUser = (email: string, language: string): User => {
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
     chapterId: '',
-
+    zoneId: '',
     location: { city: '', state: '' },
     dateOfBirth: '',
+
     language: language as any,
     biometricEnabled: false,
     role: 'member',

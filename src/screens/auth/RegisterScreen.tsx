@@ -21,13 +21,6 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, ref, set } from 'firebase/database';
 import { rtdb } from '../../../firebase.config';
-  email?: string;
-  phone?: string;
-  whatsAppNumber?: string;
-  businessAddress?: string;
-  city?: string;
-  state?: string;
-  pinCode?: string;
 import { setPendingRegistration } from '../../services/onboarding/pendingRegistration';
 import { TextInput } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
@@ -39,6 +32,12 @@ import type { AuthStackParamList, User } from '../../types';
 import { AddressPrediction, fetchAddressDetails, fetchAddressPredictions } from '../../services/googlePlaces';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 import { sendPhoneOtpForLinking, verifyPhoneOtpAndLink, getRecaptchaContainerId, resetWebRecaptchaVerifier } from '../../services/firebase/phoneAuth';
+import {
+  getCurrentUser,
+  checkIdentifiersAvailability,
+  sendOTPEmail,
+  verifyEmailOtpAndAttach,
+} from '../../services/firebase/auth';
 
 
 type RegisterNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
@@ -62,10 +61,6 @@ type FormErrors = {
   city?: string;
   state?: string;
   pinCode?: string;
-  phone?: string;
-  whatsAppNumber?: string;
-  businessAddress?: string;
-
 };
 
 type StepKey = 'personal' | 'business' | 'contact' | 'address';
@@ -129,7 +124,15 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
   const [phone, setPhone] = useState(initialPhone);
+  const [isPhoneOtpSent, setIsPhoneOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(!!initialPhone);
+  const [phoneOtpInput, setPhoneOtpInput] = useState('');
+  const [phoneOtpError, setPhoneOtpError] = useState('');
+  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
+  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false);
+  const [phoneOtpSentAtMs, setPhoneOtpSentAtMs] = useState(0);
+  const [phoneResendSeconds, setPhoneResendSeconds] = useState(0);
+  const [canResendPhoneOtp, setCanResendPhoneOtp] = useState(true);
   const [isWhatsAppSame, setIsWhatsAppSame] = useState(true);
   const [whatsAppNumber, setWhatsAppNumber] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -144,19 +147,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
   const [isFetchingAddressPredictions, setIsFetchingAddressPredictions] = useState(false);
   const [isSelectingAddress, setIsSelectingAddress] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [isPhoneOtpSent, setIsPhoneOtpSent] = useState(false);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  const [phoneOtpInput, setPhoneOtpInput] = useState('');
-  const [phoneOtpError, setPhoneOtpError] = useState('');
-  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
-  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false);
-  const [phoneOtpSentAtMs, setPhoneOtpSentAtMs] = useState(0);
-  const [phoneResendSeconds, setPhoneResendSeconds] = useState(0);
-  const [canResendPhoneOtp, setCanResendPhoneOtp] = useState(true);
-  const [isWhatsAppSame, setIsWhatsAppSame] = useState(true);
-  const [whatsAppNumber, setWhatsAppNumber] = useState('');
-  const [businessAddress, setBusinessAddress] = useState('');
 
   const [googleBusinessProfile, setGoogleBusinessProfile] = useState('');
   const [linkedIn, setLinkedIn] = useState('');
@@ -166,6 +156,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollContentRef = useRef<View | null>(null);
   const categorySectionRef = useRef<View | null>(null);
+  const phoneConfirmationRef = useRef<{ verificationId: string } | null>(null);
+  const phoneResendIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const dropdownMaxHeight = useDropdownMaxHeight(180);
   const keyboardHeight = useKeyboardHeight();
   const businessCategories = useMemo(
@@ -266,16 +258,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const normalizedCategorySearch = normalizeTag(categorySearch);
   const canCreateCategory = !!normalizedCategorySearch
     && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
-  const filteredCategories = useMemo(() => {
-    const queryText = categorySearch.toLowerCase().trim();
-    if (!queryText) return businessConfig.businessCategories;
-    return businessConfig.businessCategories.filter((cat) =>
-      cat.toLowerCase().includes(queryText),
-    );
-  }, [businessConfig.businessCategories, categorySearch]);
-  const normalizedCategorySearch = normalizeTag(categorySearch);
-  const canCreateCategory = !!normalizedCategorySearch
-    && !businessConfig.businessCategories.some((cat) => cat.toLowerCase() === normalizedCategorySearch.toLowerCase());
 
 
   const clearError = (field: keyof FormErrors) => {
@@ -363,6 +345,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
       setEmailOtpError(message);
     } finally {
       setIsVerifyingEmailOtp(false);
+    }
+  };
+
   const resetPhoneVerification = () => {
     setIsPhoneOtpSent(false);
     setIsPhoneVerified(false);
@@ -549,16 +534,30 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     setCategoryDropdownOpen(false);
   };
 
+  const handleSelectAddressPrediction = async (prediction: AddressPrediction) => {
+    setIsAddressDropdownOpen(false);
+    setIsSelectingAddress(true);
+    try {
+      const details = await fetchAddressDetails(prediction.placeId);
+      setBusinessAddress(details.formattedAddress || prediction.description);
+      setBusinessArea(details.area || '');
+      setBusinessCity(details.city || '');
+      setBusinessState(details.state || '');
+      setBusinessPinCode(details.pinCode || '');
+      setBusinessPlaceId(prediction.placeId);
+      if (details.latitude) setBusinessLatitude(details.latitude);
+      if (details.longitude) setBusinessLongitude(details.longitude);
 
-      const finalEmail = normalizeEmail(email) || verifiedEmail || getCurrentUser()?.email || '';
-      if (!EMAIL_REGEX.test(finalEmail) || (!isEmailVerified && !isPhoneOnlyFlow)) {
-        Alert.alert(
-          t('common.error', 'Error'),
-          t('register.emailNotVerified', 'Please verify your business email'),
-        );
-        return;
-      }
-      {
+      clearError('businessAddress');
+      clearError('city');
+      clearError('state');
+      clearError('pinCode');
+    } catch (err) {
+      console.error('Failed to fetch address details:', err);
+    } finally {
+      setIsSelectingAddress(false);
+    }
+  };
 
   const validateStep = (stepIndex: number): boolean => {
     const nextErrors: FormErrors = {};
@@ -585,7 +584,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         nextErrors.phone = t('register.phoneNotVerified', 'Please verify your business number');
       }
 
-              userMatchesEmail(user, finalEmail),
       if (!isWhatsAppSame) {
         if (!normalizedWhatsApp) {
           nextErrors.whatsAppNumber = t('register.whatsappRequired', 'WhatsApp number is required');
@@ -598,8 +596,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     if (stepIndex === 3) {
       if (!businessAddress.trim()) {
         nextErrors.businessAddress = t('register.addressRequired', 'Business address is required');
-      }
-          await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
       }
     }
 
@@ -649,23 +645,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         );
         return;
       }
-      {
 
-        const usersRef = ref(rtdb, 'users');
-        const usersSnap = await get(usersRef);
-        const existingByEmail = usersSnap.exists()
-          ? Object.entries(usersSnap.val() as Record<string, Record<string, unknown>>).find(([, user]) =>
-        if (emailInUse) {
-            )?.[0]
-          : undefined;
+      const usersRef = ref(rtdb, 'users');
+      const usersSnap = await get(usersRef);
+      const existingByEmail = usersSnap.exists()
+        ? Object.entries(usersSnap.val() as Record<string, Record<string, unknown>>).find(([, user]) =>
+            userMatchesEmail(user, finalEmail)
+          )?.[0]
+        : undefined;
 
-        if (existingByEmail && existingByEmail !== uid) {
-          await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
-
-          setNewUser(false);
-          navigation.reset({ index: 0, routes: [{ name: 'BiometricSetup' }] });
-          return;
-        }
+      if (existingByEmail && existingByEmail !== uid) {
+        await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
+        setNewUser(false);
+        navigation.reset({ index: 0, routes: [{ name: 'BiometricSetup' }] });
+        return;
       }
 
       const now = new Date().toISOString();
@@ -673,7 +666,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
       const normalizedPhone = phone.replace(/\D/g, '');
       const normalizedPinCode = businessPinCode.trim();
 
-        zoneId: '',
       const normalizedWhatsApp = isWhatsAppSame
         ? normalizedPhone
         : whatsAppNumber.replace(/\D/g, '');
@@ -690,9 +682,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           return;
         }
         if (emailInUse && !isPhoneOnlyFlow) {
-
-        if (emailInUse) {
-
           Alert.alert(
             t('register.emailInUseTitle', 'Email already in use'),
             t('register.emailInUseMessage', 'This email is already registered. Please login instead.'),
@@ -731,6 +720,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           google: googleBusinessProfile.trim(),
         },
         chapterId: '',
+        zoneId: '',
         location: {
           city: businessCity.trim(),
           state: businessState.trim(),
@@ -740,9 +730,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           ...(typeof businessLatitude === 'number' ? { latitude: businessLatitude } : {}),
           ...(typeof businessLongitude === 'number' ? { longitude: businessLongitude } : {}),
         },
-
-        zoneId: '',
-        location: { city: '', state: '' },
 
         dateOfBirth: '',
         language: 'en',
@@ -944,17 +931,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             label={t('register.businessNumber', 'Business Number')}
             placeholder={t('register.businessNumberPlaceholder', '9876543210')}
             value={phone}
-            editable={false}
-
-            label={t('register.businessEmail', 'Business Email')}
-            value={verifiedEmail}
-            editable={false}
-            icon="mail-outline"
-          />
-          <TextInput
-            label={t('register.businessNumber', 'Business Number')}
-            placeholder={t('register.businessNumberPlaceholder', '9876543210')}
-            value={phone}
             onChangeText={(value) => {
               const sanitized = value.replace(/\D/g, '').slice(0, 10);
               if (sanitized !== phone) {
@@ -963,18 +939,56 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
               }
               clearError('phone');
             }}
-
             error={errors.phone}
             icon="call-outline"
             keyboardType="phone-pad"
             maxLength={10}
           />
           <View style={styles.phoneVerifyContainer}>
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.verifiedBadgeText}>{t('register.verified', 'Verified')}</Text>
-            </View>
+            {isPhoneVerified ? (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                <Text style={styles.verifiedBadgeText}>{t('register.verified', 'Verified')}</Text>
+              </View>
+            ) : (
+              <Button
+                title={isPhoneOtpSent ? t('register.resendOtp', 'Resend OTP') : t('register.sendOtp', 'Send OTP')}
+                onPress={handleSendPhoneOtp}
+                loading={isSendingPhoneOtp}
+                disabled={isSendingPhoneOtp || phone.length !== 10}
+                size="sm"
+              />
+            )}
           </View>
+
+          {isPhoneOtpSent && !isPhoneVerified ? (
+            <View style={styles.phoneOtpContainer}>
+              <TextInput
+                label={t('register.enterOtp', 'Enter verification code')}
+                placeholder={t('register.otpPlaceholderSms', '6-digit code from SMS')}
+                value={phoneOtpInput}
+                onChangeText={(value) => {
+                  setPhoneOtpInput(value.replace(/\D/g, '').slice(0, 6));
+                  if (phoneOtpError) setPhoneOtpError('');
+                }}
+                icon="shield-checkmark-outline"
+                keyboardType="number-pad"
+                maxLength={6}
+                error={phoneOtpError || undefined}
+              />
+              <Button
+                title={t('register.verify', 'Verify')}
+                onPress={handleVerifyPhoneOtp}
+                loading={isVerifyingPhoneOtp}
+                disabled={isVerifyingPhoneOtp || phoneOtpInput.length !== 6}
+                size="sm"
+              />
+              <Text style={styles.phoneOtpHint}>
+                {t('register.smsCodeHint', 'Enter the 6-digit code sent to your phone via SMS.')}
+              </Text>
+            </View>
+          ) : null}
+
           <TextInput
             label={t('register.businessEmail', 'Business Email')}
             placeholder={t('login.emailPlaceholder', 'you@example.com')}
@@ -1010,7 +1024,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             )}
           </View>
 
-<<<<<<< HEAD
           {isEmailOtpSent && !isEmailVerified ? (
             <View style={styles.phoneOtpContainer}>
               <TextInput
@@ -1020,22 +1033,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
                 onChangeText={(value) => {
                   setEmailOtpInput(value.replace(/\D/g, '').slice(0, 6));
                   if (emailOtpError) setEmailOtpError('');
-=======
-          {isPhoneOtpSent && !isPhoneVerified ? (
-            <View style={styles.phoneOtpContainer}>
-              <TextInput
-                label={t('register.enterOtp', 'Enter verification code')}
-                placeholder={t('register.otpPlaceholderSms', '6-digit code from SMS')}
-                value={phoneOtpInput}
-                onChangeText={(value) => {
-                  setPhoneOtpInput(value.replace(/\D/g, '').slice(0, 6));
-                  if (phoneOtpError) setPhoneOtpError('');
->>>>>>> dev/master
                 }}
                 icon="shield-checkmark-outline"
                 keyboardType="number-pad"
                 maxLength={6}
-<<<<<<< HEAD
                 error={emailOtpError || undefined}
               />
               <Button
@@ -1050,25 +1051,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
               </Text>
             </View>
           ) : null}
-=======
-                error={phoneOtpError || undefined}
-              />
-              <Button
-                title={t('register.verify', 'Verify')}
-                onPress={handleVerifyPhoneOtp}
-                loading={isVerifyingPhoneOtp}
-                disabled={isVerifyingPhoneOtp || phoneOtpInput.length !== 6}
-                size="sm"
-              />
-              <Text style={styles.phoneOtpHint}>
-                {t('register.smsCodeHint', 'Enter the 6-digit code sent to your phone via SMS.')}
-              </Text>
-            </View>
-          ) : null}
+          
           {Platform.OS === 'web' ? (
             <View nativeID={getRecaptchaContainerId()} style={styles.recaptchaPlaceholder} />
           ) : null}
->>>>>>> dev/master
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>
               {t('register.whatsappSame', 'Is this your WhatsApp number?')}
@@ -1106,7 +1092,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     return (
       <>
         <Text style={styles.sectionTitle}>{t('register.addressLinks', 'Address & Links')}</Text>
-<<<<<<< HEAD
         <View style={styles.addressAutocompleteWrap}>
           <TextInput
             label={t('register.businessAddress', 'Business Address')}
@@ -1200,21 +1185,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           icon="pin-outline"
           keyboardType="number-pad"
           maxLength={6}
-=======
-        <TextInput
-          label={t('register.businessAddress', 'Business Address')}
-          placeholder={t('register.businessAddressPlaceholder', 'Enter your business address')}
-          value={businessAddress}
-          onChangeText={(value) => {
-            setBusinessAddress(value);
-            clearError('businessAddress');
-          }}
-          error={errors.businessAddress}
-          icon="location-outline"
-          multiline
-          numberOfLines={3}
-          style={styles.multiline}
->>>>>>> dev/master
         />
         <TextInput
           label={t('register.googleBusinessProfile', 'Google Business Profile')}
@@ -1622,7 +1592,6 @@ const styles = StyleSheet.create({
     ...typography.captionMedium,
     color: colors.success,
   },
-<<<<<<< HEAD
   addressAutocompleteWrap: {
     position: 'relative',
     zIndex: 20,
@@ -1680,8 +1649,6 @@ const styles = StyleSheet.create({
   addressGridItem: {
     flex: 1,
   },
-=======
->>>>>>> dev/master
   multiline: {
     height: 84,
     textAlignVertical: 'top',

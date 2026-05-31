@@ -191,12 +191,7 @@
     "tags": "टैग",
     "category": "श्रेणी",
     "chapter": "अध्याय",
-<<<<<<< HEAD
-
-=======
     "zone": "ज़ोन",
-
->>>>>>> dev/master
     "location": "स्थान",
     "memberSince": "सदस्य",
     "profileCompletion": "प्रोफ़ाइल पूर्णता",
@@ -261,7 +256,7 @@
     "aboutApp": "ऐप के बारे में",
     "aboutDeveloper": "डेवलपर के बारे में",
     "developerName": "नेटकनेक्ट टीम",
-    "developerInfo": "बिज़नेस नेटवर्किंग के लिए जुनून से बनाया गया।",
+    "developerInfo": "बिज़नेस नेवर्किंग के लिए जुनून से बनाया गया।",
     "preferences": "प्राथमिकताएं",
     "logout": "लॉगआउट",
     "logoutTitle": "लॉगआउट",
@@ -429,13 +424,7 @@
   "admin": {
     "dashboard": "डैशबोर्ड",
     "users": "उपयोगकर्ता प्रबंधन",
-<<<<<<< HEAD
-    "chapters": "चैप्टर्स",
-
-=======
     "chapters": "चैप्टर्स और ज़ोन",
-
->>>>>>> dev/master
     "events": "इवेंट प्रबंधन",
     "referrals": "रेफरल प्रबंधन",
     "ads": "विज्ञापन प्रबंधन",
