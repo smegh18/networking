@@ -60,8 +60,17 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@babel/plugin-transform-arrow-functions": "^7.29.7",
+    "@babel/plugin-transform-class-properties": "^7.29.7",
+    "@babel/plugin-transform-classes": "^7.29.7",
+    "@babel/plugin-transform-nullish-coalescing-operator": "^7.29.7",
+    "@babel/plugin-transform-optional-chaining": "^7.29.7",
+    "@babel/plugin-transform-template-literals": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "^56.0.14",
     "patch-package": "^8.0.1",
+    "semver": "^7.8.1",
     "typescript": "~5.9.2"
   },
   "private": true
