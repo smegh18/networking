@@ -20,9 +20,41 @@ export default function App() {
   const isWeb = Platform.OS === 'web';
   const { width } = useWindowDimensions();
   const authLoading = useAuthStore((s) => s.isLoading);
+  const setUser = useAuthStore((s) => s.setUser);
   const [isReady, setIsReady] = useState(false);
   const [isMinSplashDone, setIsMinSplashDone] = useState(false);
   const [devMode, setDevMode] = useState(false);
+
+  const handleDevLogin = (role: 'member' | 'admin') => {
+    const mockUser = {
+      uid: `dev-${role}-${Date.now()}`,
+      email: `${role}@test.com`,
+      name: `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+      firstName: 'Test',
+      lastName: role.charAt(0).toUpperCase() + role.slice(1),
+      phone: '9876543210',
+      photoURL: '',
+      businessName: 'Test Business',
+      businessDescription: 'This is a test account for development.',
+      businessCategory: 'Technology',
+      businessTags: ['Testing', 'Dev'],
+      businessPhotos: [],
+      chapterId: 'dev-chapter',
+      zoneId: 'dev-zone',
+      location: { city: 'Dev City', state: 'Dev State' },
+      dateOfBirth: '1990-01-01',
+      language: 'en' as const,
+      biometricEnabled: false,
+      role: role as any,
+      profileComplete: true,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' }
+    };
+    setUser(mockUser as any);
+    setDevMode(true);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setIsMinSplashDone(true), isWeb ? 2500 : 3000);
@@ -114,13 +146,31 @@ export default function App() {
     return (
       <View style={styles.root}>
         <AppSplash name="Brahmin Connect" />
-        <TouchableOpacity 
-          style={styles.devBypass} 
-          onPress={() => setDevMode(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.devBypassText}>Enter Dev Mode (Bypass Loading)</Text>
-        </TouchableOpacity>
+        <View style={styles.devMenu}>
+          <Text style={styles.devMenuTitle}>Developer Menu</Text>
+          <View style={styles.devButtons}>
+            <TouchableOpacity 
+              style={styles.devButton} 
+              onPress={() => handleDevLogin('member')}
+            >
+              <Text style={styles.devButtonText}>Login as Member</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.devButton} 
+              onPress={() => handleDevLogin('admin')}
+            >
+              <Text style={styles.devButtonText}>Login as Admin</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.devButton, styles.devButtonOutline]} 
+              onPress={() => setDevMode(true)}
+            >
+              <Text style={styles.devButtonTextSecondary}>Just Skip Loading</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   }
@@ -153,18 +203,56 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  devBypass: {
+  devMenu: {
     position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    bottom: 50,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  devBypassText: {
+  devMenuTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  devButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  devButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  devButtonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  devButtonText: {
+    color: 'white',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  devButtonTextSecondary: {
     color: '#666',
+    fontSize: 12,
     fontWeight: '500',
   },
 });
