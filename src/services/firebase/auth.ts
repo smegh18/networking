@@ -186,7 +186,7 @@ export function onAuthStateChanged(
 ): () => void {
   if (Platform.OS !== 'web') {
     const { onAuthStateChangedNative } = require('./authNative');
-    return onAuthStateChangedNative((user) => {
+    return onAuthStateChangedNative((user: unknown) => {
       const fn = typeof callback === 'function' ? callback : callback.next;
       if (fn) fn(user as unknown as FirebaseUser | null);
     });

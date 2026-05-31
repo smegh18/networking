@@ -99,6 +99,11 @@ export const typography = {
     fontWeight: '500' as const,
     lineHeight: 20,
   },
+  bodySmallSemiBold: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    lineHeight: 20,
+  },
   caption: {
     fontSize: 12,
     fontWeight: '400' as const,

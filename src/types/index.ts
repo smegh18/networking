@@ -1,3 +1,5 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
 export type AccessRole = 'member' | 'admin' | 'superadmin';
 export type LeadershipRole =
   | 'member'
@@ -271,10 +273,10 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
-  DashboardTab: undefined;
-  NetworkTab: undefined;
-  ProfileTab: undefined;
-  MoreTab: undefined;
+  DashboardTab: NavigatorScreenParams<DashboardStackParamList> | undefined;
+  NetworkTab: NavigatorScreenParams<NetworkStackParamList> | undefined;
+  ProfileTab: NavigatorScreenParams<ProfileStackParamList> | undefined;
+  MoreTab: NavigatorScreenParams<MoreStackParamList> | undefined;
 };
 
 export type MoreStackParamList = {
