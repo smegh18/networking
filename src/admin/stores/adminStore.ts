@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { User, Chapter, Event, Meeting, Referral, Ad, Ask, AppNotification } from '../../types';
+import type { User, Chapter, Zone, Event, Meeting, Referral, Ad, Ask, AppNotification } from '../../types';
+
 import type { AdminDashboardStats } from '../types/admin';
 
 interface AdminState {
@@ -9,6 +10,8 @@ interface AdminState {
   users: User[];
   usersLoading: boolean;
   chapters: Chapter[];
+  zones: Zone[];
+
   events: Event[];
   referrals: Referral[];
   ads: Ad[];
@@ -23,6 +26,8 @@ interface AdminActions {
   setUsers: (users: User[]) => void;
   setUsersLoading: (loading: boolean) => void;
   setChapters: (chapters: Chapter[]) => void;
+  setZones: (zones: Zone[]) => void;
+
   setEvents: (events: Event[]) => void;
   setReferrals: (referrals: Referral[]) => void;
   setAds: (ads: Ad[]) => void;
@@ -38,6 +43,8 @@ const initialState: AdminState = {
   users: [],
   usersLoading: false,
   chapters: [],
+  zones: [],
+
   events: [],
   referrals: [],
   ads: [],
@@ -54,6 +61,8 @@ export const useAdminStore = create<AdminState & AdminActions>((set) => ({
   setUsers: (users) => set({ users }),
   setUsersLoading: (usersLoading) => set({ usersLoading }),
   setChapters: (chapters) => set({ chapters }),
+  setZones: (zones) => set({ zones }),
+
   setEvents: (events) => set({ events }),
   setReferrals: (referrals) => set({ referrals }),
   setAds: (ads) => set({ ads }),

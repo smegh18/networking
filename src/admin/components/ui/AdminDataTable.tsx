@@ -18,6 +18,9 @@ interface AdminDataTableProps<T> {
   loading?: boolean;
   emptyMessage?: string;
   pageSize?: number;
+  enablePagination?: boolean;
+  maxBodyHeight?: number;
+
   actions?: (item: T) => React.ReactNode;
   /** When provided, rows become clickable and invoke this callback */
   onRowPress?: (item: T) => void;
@@ -30,6 +33,9 @@ export function AdminDataTable<T>({
   loading = false,
   emptyMessage = 'No data found',
   pageSize = 10,
+  enablePagination = true,
+  maxBodyHeight,
+
   actions,
   onRowPress,
 }: AdminDataTableProps<T>) {
@@ -57,6 +63,8 @@ export function AdminDataTable<T>({
 
   const totalPages = Math.ceil(sortedData.length / pageSize);
   const pagedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
+  const tableData = enablePagination ? pagedData : sortedData;
+
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -109,50 +117,59 @@ export function AdminDataTable<T>({
           </View>
 
           {/* Rows */}
-          {pagedData.length === 0 ? (
+          {tableData.length === 0 ? (
+
             <View style={styles.emptyRow}>
               <Text style={styles.emptyText}>{emptyMessage}</Text>
             </View>
           ) : (
-            pagedData.map((item, index) => {
-              const RowWrapper = onRowPress ? TouchableOpacity : View;
-              const rowProps = onRowPress
-                ? { onPress: () => onRowPress(item), activeOpacity: 0.7 }
-                : {};
-              return (
-              <RowWrapper
-                key={keyExtractor(item)}
-                style={[styles.dataRow, index % 2 === 0 && styles.dataRowAlt]}
-                {...rowProps}
-              >
-                {columns.map((col) => (
-                  <View
-                    key={col.key}
-                    style={[styles.dataCell, col.width ? { width: col.width } : { flex: 1, minWidth: 120 }]}
+            <ScrollView
+              style={[styles.bodyScroll, maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined]}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {tableData.map((item, index) => {
+                const RowWrapper = onRowPress ? TouchableOpacity : View;
+                const rowProps = onRowPress
+                  ? { onPress: () => onRowPress(item), activeOpacity: 0.7 }
+                  : {};
+                return (
+                  <RowWrapper
+                    key={keyExtractor(item)}
+                    style={[styles.dataRow, index % 2 === 0 && styles.dataRowAlt]}
+                    {...rowProps}
                   >
-                    {col.render ? (
-                      col.render(item)
-                    ) : (
-                      <Text style={styles.cellText} numberOfLines={1}>
-                        {String((item as any)[col.key] ?? '—')}
-                      </Text>
+                    {columns.map((col) => (
+                      <View
+                        key={col.key}
+                        style={[styles.dataCell, col.width ? { width: col.width } : { flex: 1, minWidth: 120 }]}
+                      >
+                        {col.render ? (
+                          col.render(item)
+                        ) : (
+                          <Text style={styles.cellText} numberOfLines={1}>
+                            {String((item as any)[col.key] ?? '—')}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                    {actions && (
+                      <View style={[styles.dataCell, { width: 120 }]}>
+                        {actions(item)}
+                      </View>
                     )}
-                  </View>
-                ))}
-                {actions && (
-                  <View style={[styles.dataCell, { width: 120 }]}>
-                    {actions(item)}
-                  </View>
-                )}
-              </RowWrapper>
-            );
-            })
+                  </RowWrapper>
+                );
+              })}
+            </ScrollView>
+
           )}
         </View>
       </ScrollView>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {enablePagination && totalPages > 1 && (
+
         <View style={[styles.pagination, styles.tableCard, styles.paginationCard, { minWidth: Math.max(totalTableWidth, 400) }]}>
           <Text style={styles.pageInfo}>
             {page * pageSize + 1}–{Math.min((page + 1) * pageSize, sortedData.length)} of{' '}
@@ -249,6 +266,10 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textTertiary,
   },
+  bodyScroll: {
+    width: '100%',
+  },
+
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',

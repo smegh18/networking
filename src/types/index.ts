@@ -33,6 +33,7 @@ export interface User {
   isWhatsAppSame?: boolean;
   socialLinks: SocialLinks;
   chapterId: string;
+  zoneId: string;
   location: Location;
   dateOfBirth: string;
   language: Language;
@@ -70,9 +71,17 @@ export interface Location {
 export interface Chapter {
   id: string;
   name: string;
+  zoneId: string;
   location: Location;
   memberCount: number;
   createdAt: string;
+}
+
+export interface Zone {
+  id: string;
+  name: string;
+  region: string;
+  chapterCount: number;
 }
 
 export type EventAttendanceStatus = 'attending' | 'not_attending' | 'substituted';
@@ -221,6 +230,8 @@ export interface Business {
   referredById?: string;
   referredByName?: string;
   amount: number;
+  city?: string; // from dev
+  state?: string; // from dev
   createdAt: string;
 }
 

@@ -1,19 +1,6 @@
 import type { Location } from '../types';
 import { format, isToday, isTomorrow, parseISO, differenceInDays } from 'date-fns';
 
-export const normalizeText = (value: unknown): string =>
-  String(value ?? '').trim();
-
-export const normalizeTextLower = (value: unknown): string =>
-  normalizeText(value).toLowerCase();
-
-export const normalizeStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => normalizeText(item))
-    .filter(Boolean);
-};
-
 export const formatDate = (dateStr: string): string => {
   const date = parseISO(dateStr);
   if (isToday(date)) return 'Today';
@@ -124,3 +111,4 @@ export const formatBusinessMapAddress = (
     .filter((part, index, parts) => parts.findIndex((candidate) => candidate.toLowerCase() === part.toLowerCase()) === index)
     .join(', ');
 };
+

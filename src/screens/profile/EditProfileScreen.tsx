@@ -21,6 +21,7 @@ import { colors, typography, spacing, borderRadius, shadows } from '../../theme'
 import type { ProfileStackParamList, User } from '../../types';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
+
 type Props = StackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
 const normalizeTag = (value: string): string => value.trim().replace(/\s+/g, ' ');
@@ -62,6 +63,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     () => normalizeStringArray(businessConfig.businessCategories),
     [businessConfig.businessCategories],
   );
+
 
   useEffect(() => {
     if (!authUser) {
@@ -107,12 +109,14 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const canCreateCategory = !!normalizedCategorySearch
     && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
 
+
   const showCategoryDropdown = categoryDropdownOpen && !businessCategory;
 
   const availableServices = useMemo(() => {
     if (!businessCategory) return [];
     const base = normalizeStringArray(businessConfig.servicesByCategory[businessCategory]);
     const custom = normalizeStringArray(customServicesByCategory[businessCategory]);
+
     const unique: string[] = [];
     [...base, ...custom].forEach((service) => {
       const clean = normalizeTag(service);
@@ -126,6 +130,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     return availableServices
       .filter((service) => !hasTag(selectedServices, service))
       .filter((service) => !q || normalizeTextLower(service).includes(q));
+
   }, [availableServices, selectedServices, serviceSearch]);
 
   const normalizedServiceSearch = normalizeTag(serviceSearch);

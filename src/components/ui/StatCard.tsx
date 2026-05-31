@@ -9,6 +9,7 @@ interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   style?: ViewStyle;
+
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -25,6 +26,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       </View>
       <Text style={styles.value}>{value}</Text>
       <Text style={styles.title} numberOfLines={2}>{title}</Text>
+
     </View>
   );
 };
@@ -41,6 +43,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
+
   iconContainer: {
     width: 44,
     height: 44,
@@ -49,13 +52,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
+
   value: {
     ...typography.h2,
     color: colors.text,
     marginBottom: spacing.xs,
   },
+
   title: {
     ...typography.caption,
     color: colors.textSecondary,
   },
+
 });

@@ -16,6 +16,10 @@ import AdminAdFormScreen from '../screens/AdminAdFormScreen';
 import AdminAsksScreen from '../screens/AdminAsksScreen';
 import AdminNotificationsScreen from '../screens/AdminNotificationsScreen';
 import AdminBusinessConfigScreen from '../screens/AdminBusinessConfigScreen';
+import AdminTransactionScreen from '../screens/AdminTransactionScreen';
+import AdminTransactionFormScreen from '../screens/AdminTransactionFormScreen';
+import AdminUserDetailsScreen from '../screens/AdminUserDetailsScreen';
+
 
 const Stack = createStackNavigator<AdminStackParamList>();
 
@@ -35,6 +39,10 @@ export const AdminNavigator: React.FC = () => (
     <Stack.Screen name="AdminAdForm" component={AdminAdFormScreen} />
     <Stack.Screen name="AdminAsks" component={AdminAsksScreen} />
     <Stack.Screen name="AdminBusinessConfig" component={AdminBusinessConfigScreen} />
+    <Stack.Screen name="AdminTransaction" component={AdminTransactionScreen} />
+    <Stack.Screen name="AdminTransactionForm" component={AdminTransactionFormScreen} />
+    <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
+
     <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
   </Stack.Navigator>
 );

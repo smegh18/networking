@@ -128,6 +128,8 @@ function buildMinimalAdminUser(uid, email, role) {
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
     chapterId: '',
+    zoneId: '',
+
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: 'en',

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   useWindowDimensions,
+
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,7 @@ const MOBILE_BREAKPOINT = 400;
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const compact = width < MOBILE_BREAKPOINT;
+
   const { t, i18n } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'en');
 
@@ -42,6 +44,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 
   const handleRegister = () => {
     navigation.navigate('PhoneLogin', { mode: 'register' });
+
   };
 
   return (
@@ -215,6 +218,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: layout.maxContentWidth,
     paddingTop: spacing['5xl'],
+
   },
   contentCompact: {
     paddingTop: spacing.xl,
@@ -226,6 +230,7 @@ const styles = StyleSheet.create({
   },
   logoContainerCompact: {
     marginBottom: spacing.lg,
+
   },
   logoCircle: {
     width: 110,
@@ -270,6 +275,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing['4xl'],
+
     paddingHorizontal: spacing['2xl'],
   },
   subtitleCompact: {
@@ -280,6 +286,7 @@ const styles = StyleSheet.create({
   featuresContainer: {
     width: '100%',
     marginBottom: spacing['4xl'],
+
     paddingHorizontal: spacing.sm,
   },
   featuresContainerCompact: {
@@ -322,6 +329,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: spacing.lg,
     marginTop: spacing.md,
+
   },
   authButtonsCompact: {
     gap: spacing.md,
@@ -352,6 +360,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     marginTop: spacing.xs,
+
   },
   adminLinkText: {
     ...typography.caption,

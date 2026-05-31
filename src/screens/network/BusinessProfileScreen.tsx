@@ -155,6 +155,7 @@ const BusinessProfileScreen: React.FC<Props> = ({ navigation, route }) => {
           businessArea={user.businessArea}
           location={user.location}
         />
+
       </Section>
 
       <Section title={t('network.connect')}>

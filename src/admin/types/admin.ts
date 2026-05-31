@@ -1,8 +1,11 @@
-import type { User, Chapter, Event, Meeting, Referral, Ad, Ask, AppNotification } from '../../types';
+import type { User, Chapter, Zone, Event, Meeting, Referral, Ad, Ask, AppNotification } from '../../types';
+
 
 export interface AdminDashboardStats {
   totalUsers: number;
   totalChapters: number;
+  totalZones: number;
+
   totalEvents: number;
   totalMeetings: number;
   totalReferrals: number;
@@ -53,4 +56,8 @@ export type AdminStackParamList = {
   AdminAsks: undefined;
   AdminNotifications: undefined;
   AdminBusinessConfig: undefined;
+  AdminTransaction: undefined;
+  AdminTransactionForm: { transactionId: string };
+  AdminUserDetails: { userId: string };
+
 };

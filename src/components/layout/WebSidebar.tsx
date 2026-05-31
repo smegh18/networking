@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, ScrollView } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
@@ -139,6 +141,7 @@ export const WebSidebar: React.FC<WebSidebarProps> = ({
         <Ionicons name="log-out-outline" size={22} color={colors.error} />
         <Text style={styles.logoutText}>{t('auth.logout')}</Text>
       </TouchableOpacity>
+
     </View>
   );
 };
@@ -153,6 +156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     ...(Platform.OS === 'web' ? { height: '100vh' as any, position: 'sticky' as any, top: 0 } : {}),
   },
+
   brand: {
     flexDirection: 'row',
     alignItems: 'center',

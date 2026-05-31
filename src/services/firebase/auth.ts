@@ -19,6 +19,7 @@ const verifyEmailOtpAndAttachCallable = httpsCallable<{ email: string; code: str
   functions,
   'verifyEmailOtpAndAttach',
 );
+
 const checkIdentifiersCallable = httpsCallable<
   { email?: string; phone?: string; excludeUid?: string },
   { emailInUse: boolean; phoneInUse: boolean; emailUid?: string; phoneUid?: string }
@@ -96,6 +97,7 @@ export async function verifyEmailOtpAndAttach(email: string, code: string): Prom
     throw err;
   }
 }
+
 
 export async function checkIdentifiersAvailability(args: {
   email?: string;

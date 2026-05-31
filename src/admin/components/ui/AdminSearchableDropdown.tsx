@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius } from '../../../theme';
-import { normalizeText, normalizeTextLower } from '../../../utils/helpers';
+
 
 interface AdminSearchableDropdownProps {
   label: string;
@@ -24,15 +24,16 @@ export const AdminSearchableDropdown: React.FC<AdminSearchableDropdownProps> = (
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
-  const selectedLabel = normalizeText(options.find((o) => o.key === value)?.label) || placeholder;
+  const selectedLabel = options.find((o) => o.key === value)?.label || placeholder;
 
   const filteredOptions = useMemo(() => {
     if (!search.trim()) return options;
-    const q = normalizeTextLower(search);
+    const q = search.toLowerCase().trim();
     return options.filter(
       (o) =>
-        normalizeTextLower(o.label).includes(q) ||
-        normalizeTextLower(o.key).includes(q),
+        o.label.toLowerCase().includes(q) ||
+        o.key.toLowerCase().includes(q),
+
     );
   }, [options, search]);
 

@@ -2,6 +2,10 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Linking from 'expo-linking';
+import React, { useState } from 'react';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { RootStackParamList } from '../types';
 import { AuthStack } from './AuthStack';
 import { MainDrawer } from './MainDrawer';
@@ -14,6 +18,7 @@ import { useCurrentUserRealtime } from '../hooks/useRealtimeData';
 import { signOut } from '../services/firebase/auth';
 
 const Stack = createStackNavigator<RootStackParamList>();
+
 
 const linking = {
   prefixes: [
@@ -45,18 +50,21 @@ const linking = {
   },
 } as const;
 
+
 export const AppNavigator: React.FC = () => {
   usePendingRegistrationCleanup();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const needsProfileCompletion = !!user && user.profileComplete === false;
+
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isApproved = user?.isActive !== false;
   useCurrentUserRealtime();
 
   return (
     <NavigationContainer linking={linking}>
+
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           isAdmin ? (
@@ -68,6 +76,7 @@ export const AppNavigator: React.FC = () => {
           <Stack.Screen name="Auth">
             {() => <AuthStack initialRouteName={needsProfileCompletion ? 'Register' : 'Welcome'} />}
           </Stack.Screen>
+
         )}
       </Stack.Navigator>
       {isAuthenticated && user && !isAdmin && isApproved ? <EventInvitationPopup /> : null}
@@ -84,3 +93,4 @@ export const AppNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+

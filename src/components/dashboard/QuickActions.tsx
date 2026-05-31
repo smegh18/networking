@@ -40,6 +40,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         <Ionicons name={action.icon} size={26} color={action.color} />
       </View>
       <Text style={styles.label} numberOfLines={2}>{action.label}</Text>
+
     </TouchableOpacity>
   );
 
@@ -53,6 +54,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
 
   return (
     <View style={[styles.container, styles.mobileGrid]}>
+
       {actions.map(renderActionCard)}
     </View>
   );
@@ -65,6 +67,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   mobileGrid: {
+
     justifyContent: 'space-between',
   },
   webContainer: {
@@ -91,6 +94,7 @@ const styles = StyleSheet.create({
   },
   mobileCard: {
     width: '48%',
+
   },
   iconContainer: {
     width: 52,
@@ -100,9 +104,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
+
   label: {
     ...typography.captionMedium,
     color: colors.text,
     textAlign: 'center',
   },
+
 });

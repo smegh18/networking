@@ -32,6 +32,7 @@ export const StatsRow: React.FC<StatsRowProps> = ({ stats }) => {
   const isWeb = Platform.OS === 'web' && width > breakpoints.lg;
   const isMobile = !isWeb;
 
+
   const items = [
     { title: t('dashboard.bbcTotal'), value: formatAmountStr(stats.bbcTotal ?? 0), icon: 'briefcase-outline' as const, color: colors.statsGiven },
     { title: t('dashboard.chapterBusiness'), value: formatAmountStr(stats.chapterBusiness ?? 0), icon: 'business-outline' as const, color: colors.statsReceived },
@@ -59,6 +60,7 @@ export const StatsRow: React.FC<StatsRowProps> = ({ stats }) => {
 
   return (
     <View style={[styles.container, isMobile && styles.mobileGrid]}>
+
       {items.map((item, index) => (
         <StatCard
           key={index}
@@ -67,6 +69,7 @@ export const StatsRow: React.FC<StatsRowProps> = ({ stats }) => {
           icon={item.icon}
           color={item.color}
           style={styles.mobileCard}
+
         />
       ))}
     </View>
@@ -87,6 +90,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 0,
     maxWidth: '48%',
+
   },
   webContainer: {
     flexDirection: 'row',

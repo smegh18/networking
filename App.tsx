@@ -4,8 +4,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import { I18nextProvider } from 'react-i18next';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import * as Font from 'expo-font';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import i18n from './src/i18n';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -19,13 +20,13 @@ const LoadingScreen = () => <AppSplash name="Brahmin Connect" />;
 export default function App() {
   useAuthInit();
   const isWeb = Platform.OS === 'web';
+  const { width } = useWindowDimensions();
   const authLoading = useAuthStore((s) => s.isLoading);
   const [isReady, setIsReady] = useState(false);
-  const [isMinSplashDone, setIsMinSplashDone] = useState(isWeb);
+  const [isMinSplashDone, setIsMinSplashDone] = useState(false);
 
   useEffect(() => {
-    if (isWeb) return;
-    const timer = setTimeout(() => setIsMinSplashDone(true), 3000);
+    const timer = setTimeout(() => setIsMinSplashDone(true), isWeb ? 2500 : 3000);
     return () => clearTimeout(timer);
   }, [isWeb]);
 
@@ -39,6 +40,13 @@ export default function App() {
             'MaterialIcons': '/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.4e85bc9ebe07e0340c9c4fc2f6c38908.ttf',
             'MaterialCommunityIcons': '/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.6e435534bd35da5fef04168860a9b8fa.ttf',
           });
+        } else {
+          // Load icon fonts correctly for all platforms
+          await Font.loadAsync({
+            ...Ionicons.font,
+            ...MaterialIcons.font,
+            ...MaterialCommunityIcons.font,
+          });
         }
 
         // Wait for i18n to be initialized (async language detection)
@@ -48,8 +56,7 @@ export default function App() {
           });
         }
       } catch (error) {
-        // Continue even if initialization has issues
-        console.error('Font loading error:', error);
+        console.error('Initialization error:', error);
       } finally {
         setIsReady(true);
       }
@@ -76,13 +83,15 @@ export default function App() {
     };
 
     html.style.height = '100%';
-    html.style.overflow = 'auto';
+    html.style.overflow = 'hidden';
     body.style.height = '100%';
-    body.style.overflow = 'auto';
-    body.style.overscrollBehavior = 'auto';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
     if (root) {
       root.style.height = '100%';
       root.style.overflow = 'auto';
+      root.style.overscrollBehavior = 'none';
+      root.style.scrollbarGutter = 'stable';
     }
 
     return () => {
@@ -94,15 +103,24 @@ export default function App() {
       if (root) {
         root.style.height = prev.rootHeight;
         root.style.overflow = prev.rootOverflow;
+        (root.style as any).overscrollBehavior = '';
+        (root.style as any).scrollbarGutter = '';
       }
     };
   }, [isWeb]);
 
-  if (!isReady) {
-    return isWeb ? <View style={styles.root} /> : <LoadingScreen />;
-  }
+  // On Web, wait for width to be measured (> 0) to prevent layout flickering
+  const [isLayoutStable, setIsLayoutStable] = useState(!isWeb);
 
-  if (!isWeb && (!isMinSplashDone || authLoading)) {
+  useEffect(() => {
+    if (isWeb && width > 0) {
+      // Increase buffer to ensure browser layout engine has fully settled
+      const timer = setTimeout(() => setIsLayoutStable(true), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isWeb, width]);
+
+  if (!isReady || authLoading || !isMinSplashDone || !isLayoutStable) {
     return <LoadingScreen />;
   }
 

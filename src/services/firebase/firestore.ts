@@ -21,6 +21,7 @@ import { db } from '../../../firebase.config';
 import type {
   User,
   Chapter,
+
   Event,
   Meeting,
   Referral,
@@ -36,6 +37,7 @@ import type {
 
 const usersCol = collection(db, 'users');
 const chaptersCol = collection(db, 'chapters');
+
 const eventsCol = collection(db, 'events');
 const meetingsCol = collection(db, 'meetings');
 const referralsCol = collection(db, 'referrals');
@@ -143,12 +145,14 @@ export async function getUsersByChapter(chapterId: string): Promise<User[]> {
 
 // ---------------------------------------------------------------------------
 // Chapters
+
 // ---------------------------------------------------------------------------
 
 export async function getChapters(): Promise<Chapter[]> {
   const snap = await getDocs(chaptersCol);
   return snap.docs.map((d) => docToTyped<Chapter>(d));
 }
+
 
 // ---------------------------------------------------------------------------
 // Events

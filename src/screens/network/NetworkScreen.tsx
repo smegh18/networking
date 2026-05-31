@@ -13,6 +13,7 @@ import { colors, typography, spacing, layout } from '../../theme';
 import type { NetworkStackParamList, User, Chapter } from '../../types';
 import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
 
+
 type Props = StackScreenProps<NetworkStackParamList, 'Network'>;
 
 const NetworkScreen: React.FC<Props> = ({ navigation }) => {
@@ -29,11 +30,13 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
 
   const locations = useMemo(
     () => Array.from(new Set(users.map((user) => normalizeText(user.location?.city)).filter(Boolean))),
+
     [users],
   );
 
   const filteredMembers = useMemo(() => {
     const q = normalizeTextLower(searchQuery);
+
     return users
       .filter((user) => user.uid !== currentUser?.uid)
       .filter((user) => (user.isActive !== false))
@@ -53,6 +56,7 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScreenWrapper scrollable={false} padded={false}>
+
       <View style={styles.searchContainer}>
         <SearchBar
           value={searchQuery}
@@ -74,12 +78,14 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
             chapters={chapters
               .map((ch) => ({ id: ch.id, name: normalizeText(ch.name) }))
               .filter((ch) => !!ch.id && !!ch.name)}
+
             selectedChapter={selectedChapter}
             onChapterSelect={setSelectedChapter}
             locations={locations}
             selectedLocation={selectedLocation}
             onLocationSelect={setSelectedLocation}
             categories={normalizeStringArray(businessConfig.businessCategories)}
+
             selectedCategory={selectedCategory}
             onCategorySelect={setSelectedCategory}
           />
@@ -123,6 +129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPadding,
     paddingTop: spacing.sm,
     paddingBottom: spacing['4xl'],
+
   },
   filterBarWrap: {
     marginBottom: spacing.md,

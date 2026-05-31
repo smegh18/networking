@@ -10,6 +10,7 @@ export type PhoneLinkVerification = {
   autoVerifiedCode?: string | null;
 };
 
+
 export async function signInWithPhoneNumberNative(
   phoneNumber: string,
 ): Promise<PhoneAuthConfirmation> {
@@ -58,4 +59,5 @@ export async function verifyPhoneNumberForLinkingNative(
         settleReject,
       );
   });
+
 }

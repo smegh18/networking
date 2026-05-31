@@ -12,6 +12,7 @@ import { colors, typography, spacing, layout } from '../../theme';
 import type { DashboardStackParamList, User } from '../../types';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
+
 type Props = StackScreenProps<DashboardStackParamList, 'SearchResults'>;
 
 const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -22,6 +23,7 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const sections = useMemo(() => {
     const q = normalizeTextLower(query);
+
     if (!q) return [];
 
     const businessMatches: User[] = [];
@@ -34,6 +36,7 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
         normalizeTextLower(user.businessName).includes(q)
         || normalizeTextLower(user.name).includes(q)
       ) {
+
         businessMatches.push(user);
         seen.add(user.uid);
       }
@@ -44,6 +47,7 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
         !seen.has(user.uid)
         && normalizeStringArray(user.businessTags).some((tag) => normalizeTextLower(tag).includes(q))
       ) {
+
         tagMatches.push(user);
         seen.add(user.uid);
       }
@@ -51,6 +55,7 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
 
     users.forEach((user) => {
       if (!seen.has(user.uid) && normalizeTextLower(user.businessCategory).includes(q)) {
+
         categoryMatches.push(user);
       }
     });

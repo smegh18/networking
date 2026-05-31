@@ -5,6 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
+  Image,
+
 } from "react-native";
 import { StackScreenProps } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,7 +30,7 @@ import {
 
 import type { AdminStackParamList } from "../types/admin";
 import type { User } from "../../types";
-import { normalizeTextLower } from "../../utils/helpers";
+
 
 type Props = StackScreenProps<AdminStackParamList, "AdminUsers">;
 
@@ -65,11 +67,12 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       result = result.filter((u) => u.isActive === false);
 
     if (search.trim()) {
-      const q = normalizeTextLower(search);
+      const q = search.toLowerCase();
       result = result.filter(
         (u) =>
-          normalizeTextLower(u.name).includes(q) ||
-          normalizeTextLower(u.email).includes(q)
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+
       );
     }
 
@@ -98,7 +101,8 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       {
         key: "name",
         label: "Name",
-        width: 220,
+        width: 260,
+
         render: (item: User) => (
           <View>
             <Text style={styles.name}>{item.name}</Text>
@@ -107,14 +111,16 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         ),
       },
 
-      { key: "businessName", label: "Business", width: 200 },
+      { key: "businessName", label: "Business", width: 240 },
 
-      { key: "businessCategory", label: "Category", width: 160 },
+      { key: "businessCategory", label: "Category", width: 190 },
+
 
       {
         key: "isActive",
         label: "Status",
-        width: 120,
+        width: 140,
+
         render: (item: User) => (
           <AdminStatusBadge
             label={item.isActive === false ? "Inactive" : "Active"}
@@ -126,9 +132,15 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       {
         key: "actions",
         label: "Actions",
-        width: 140,
+        width: 190,
         render: (item: User) => (
           <View style={styles.actions}>
+            {/* Info */}
+            <TouchableOpacity onPress={() => navigation.navigate("AdminUserDetails", { userId: item.uid })}>
+              <Ionicons name="eye-outline" size={18} color={colors.success} />
+            </TouchableOpacity>
+
+
             {/* Edit */}
             <TouchableOpacity
               onPress={() =>
@@ -180,7 +192,8 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         ),
       },
     ],
-    [users]
+    [isCompact, navigation]
+
   );
 
   const handleDelete = async () => {
@@ -223,6 +236,9 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         data={filteredUsers}
         keyExtractor={(item) => item.uid}
         loading={loading}
+        enablePagination={false}
+        maxBodyHeight={isCompact ? 420 : 620}
+
       />
 
       {/* Delete Modal */}
@@ -287,4 +303,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
+  infoIcon: {
+    width: 18,
+    height: 18,
+  },
+
 });

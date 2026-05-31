@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView, Image } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, borderRadius } from '../../../theme';
@@ -34,13 +35,16 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { key: 'AdminUsers', label: 'Users', icon: 'people-outline', iconActive: 'people' },
       { key: 'AdminRoles', label: 'Role Management', icon: 'ribbon-outline', iconActive: 'ribbon' },
-      { key: 'AdminChapters', label: 'Chapters', icon: 'business-outline', iconActive: 'business' },
+      { key: 'AdminChapters', label: 'Chapters & Zones', icon: 'business-outline', iconActive: 'business' },
+
       { key: 'AdminEvents', label: 'Events', icon: 'calendar-outline', iconActive: 'calendar' },
       { key: 'AdminEventAttendanceList', label: 'Event Attendance', icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle' },
       { key: 'AdminReferrals', label: 'Referrals', icon: 'git-network-outline', iconActive: 'git-network' },
       { key: 'AdminAds', label: 'Ads / Banners', icon: 'megaphone-outline', iconActive: 'megaphone' },
       { key: 'AdminAsks', label: 'Ask Board', icon: 'help-circle-outline', iconActive: 'help-circle' },
       { key: 'AdminBusinessConfig', label: 'Business Config', icon: 'options-outline', iconActive: 'options' },
+      { key: 'AdminTransaction', label: 'Transaction', icon: 'receipt-outline', iconActive: 'receipt' },
+
     ],
   },
   {
@@ -64,7 +68,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Brand */}
       <View style={styles.brand}>
         <View style={styles.logoContainer}>
-          <Ionicons name="shield-checkmark" size={24} color={colors.textInverse} />
+          <Image
+            source={require('../../../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+
         </View>
         <View style={styles.brandText}>
           <Text style={styles.brandName}>{t('common.appName')}</Text>
@@ -131,9 +140,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 28,
+    height: 28,
+
   },
   brandText: {
     marginLeft: spacing.md,

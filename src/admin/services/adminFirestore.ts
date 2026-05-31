@@ -14,6 +14,8 @@ import { rtdb } from '../../../firebase.config';
 import type {
   User,
   Chapter,
+  Zone,
+
   Event,
   Meeting,
   Referral,
@@ -21,6 +23,8 @@ import type {
   Ask,
   AppNotification,
   BusinessConfig,
+  Business,
+
 } from '../../types';
 import type { AdminDashboardStats } from '../types/admin';
 import { APP_CONFIG_PATH, EMPTY_BUSINESS_CONFIG, normalizeBusinessConfig } from '../../services/firebase/realtimeDb';
@@ -53,10 +57,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   const TIMEOUT = 8000;
 
-  const [usersSnap, chaptersSnap, eventsSnap, meetingsSnap, referralsSnap, adsSnap, asksSnap] =
+  const [usersSnap, chaptersSnap, zonesSnap, eventsSnap, meetingsSnap, referralsSnap, adsSnap, asksSnap] =
     await Promise.all([
       withTimeout(get(ref(rtdb, 'users')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'chapters')), TIMEOUT),
+      withTimeout(get(ref(rtdb, 'zones')), TIMEOUT),
+
       withTimeout(get(ref(rtdb, 'events')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'meetings')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'referrals')), TIMEOUT),
@@ -66,6 +72,8 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
   const users = usersSnap ? snapToArray<User>(usersSnap, 'uid') : [];
   const chapters = chaptersSnap ? snapToArray<Chapter>(chaptersSnap) : [];
+  const zones = zonesSnap ? snapToArray<Zone>(zonesSnap) : [];
+
   const events = eventsSnap ? snapToArray<Event>(eventsSnap) : [];
   const meetings = meetingsSnap ? snapToArray<Meeting>(meetingsSnap) : [];
   const referrals = referralsSnap ? snapToArray<Referral>(referralsSnap) : [];
@@ -76,6 +84,8 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   return {
     totalUsers: users.length,
     totalChapters: chapters.length,
+    totalZones: zones.length,
+
     totalEvents: events.length,
     totalMeetings: meetings.length,
     totalReferrals: referrals.length,
@@ -141,7 +151,8 @@ export async function deleteUserDoc(uid: string): Promise<void> {
   await remove(ref(rtdb, `users/${uid}`));
 }
 
-// ── Chapter CRUD ──────────────────────────────────────────────────────────────
+// ── Chapter & Zone CRUD ───────────────────────────────────────────────────────
+
 
 export async function getAllChapters(): Promise<Chapter[]> {
   const snap = await get(ref(rtdb, 'chapters'));
@@ -162,34 +173,26 @@ export async function updateChapter(id: string, data: Partial<Chapter>): Promise
 
 export async function deleteChapter(id: string): Promise<void> {
   await remove(ref(rtdb, `chapters/${id}`));
-  await syncEventsAfterChapterDelete(id);
 }
 
-async function syncEventsAfterChapterDelete(deletedChapterId: string): Promise<void> {
-  const eventsSnap = await get(ref(rtdb, 'events'));
-  if (!eventsSnap.exists()) return;
+export async function getAllZones(): Promise<Zone[]> {
+  const snap = await get(ref(rtdb, 'zones'));
+  return snapToArray<Zone>(snap);
+}
 
-  const updates: Record<string, unknown> = {};
-  const events = snapToArray<Event>(eventsSnap);
+export async function createZone(zone: Omit<Zone, 'id'>): Promise<string> {
+  const newRef = push(ref(rtdb, 'zones'));
+  await set(newRef, zone);
+  return newRef.key!;
+}
 
-  events.forEach((event) => {
-    const nextChapterIds = Array.from(
-      new Set((event.chapterIds || []).map((chapterId) => String(chapterId || '').trim()).filter(Boolean)),
-    ).filter((chapterId) => chapterId !== deletedChapterId);
+export async function updateZone(id: string, data: Partial<Zone>): Promise<void> {
+  await update(ref(rtdb, `zones/${id}`), data);
+}
 
-    const currentChapterId = String(event.chapterId || '').trim();
-    if (currentChapterId !== deletedChapterId && nextChapterIds.length === (event.chapterIds || []).length) {
-      return;
-    }
+export async function deleteZone(id: string): Promise<void> {
+  await remove(ref(rtdb, `zones/${id}`));
 
-    updates[`events/${event.id}/chapterIds`] = nextChapterIds;
-    updates[`events/${event.id}/chapterId`] = nextChapterIds.length > 0 ? nextChapterIds[0] : 'all';
-    updates[`events/${event.id}/updatedAt`] = toISO();
-  });
-
-  if (Object.keys(updates).length > 0) {
-    await update(ref(rtdb), updates);
-  }
 }
 
 // ── Event Management ──────────────────────────────────────────────────────────
@@ -276,6 +279,39 @@ export async function getAllAsks(): Promise<Ask[]> {
 export async function deleteAsk(askId: string): Promise<void> {
   await remove(ref(rtdb, `asks/${askId}`));
 }
+
+// ── Business Management ───────────────────────────────────────────────────────
+
+export async function getAllBusinessTransactions(): Promise<Business[]> {
+  const snap = await get(ref(rtdb, 'business'));
+  const items = snapToArray<Business>(snap);
+  return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+}
+
+export async function getBusinessAdmin(id: string): Promise<Business | null> {
+  const snap = await get(ref(rtdb, `business/${id}`));
+  if (!snap.exists()) return null;
+  return { id, ...snap.val() } as Business;
+}
+
+export async function updateBusinessAdmin(
+  id: string,
+  data: Partial<Business>,
+): Promise<void> {
+  await update(ref(rtdb, `business/${id}`), { ...data, updatedAt: toISO() });
+}
+
+export async function updateBusinessStatusAdmin(
+  businessId: string,
+  status: Business['status'],
+): Promise<void> {
+  await update(ref(rtdb, `business/${businessId}`), { status });
+}
+
+export async function deleteBusinessTransaction(businessId: string): Promise<void> {
+  await remove(ref(rtdb, `business/${businessId}`));
+}
+
 
 // ── Notification Management ───────────────────────────────────────────────────
 

@@ -191,6 +191,12 @@
     "tags": "ટૅગ્સ",
     "category": "શ્રેણી",
     "chapter": "ચેપ્ટર",
+<<<<<<< HEAD
+
+=======
+    "zone": "ઝોન",
+
+>>>>>>> dev/master
     "location": "સ્થાન",
     "memberSince": "સભ્ય",
     "profileCompletion": "પ્રોફાઇલ પૂર્ણતા",
@@ -423,7 +429,13 @@
   "admin": {
     "dashboard": "ડેશબોર્ડ",
     "users": "વપરાશકર્તા વ્યવસ્થાપન",
+<<<<<<< HEAD
     "chapters": "ચેપ્ટર્સ",
+
+=======
+    "chapters": "ચેપ્ટર્સ અને ઝોન",
+
+>>>>>>> dev/master
     "events": "ઇવેન્ટ વ્યવસ્થાપન",
     "referrals": "રેફરલ વ્યવસ્થાપન",
     "ads": "જાહેરાત વ્યવસ્થાપન",

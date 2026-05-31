@@ -4,12 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, borderRadius, spacing } from '../../theme';
 import { Location, SocialLinks as SocialLinksType } from '../../types';
 import { formatBusinessMapAddress, openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
+import { SocialLinks as SocialLinksType } from '../../types';
+import { openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
+
 
 interface SocialLinksProps {
   links: SocialLinksType;
   businessAddress?: string;
   businessArea?: string;
   location?: Partial<Location>;
+
 }
 
 const SOCIAL_CONFIG = [
@@ -21,6 +25,7 @@ const SOCIAL_CONFIG = [
 ];
 
 export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress, businessArea, location }) => {
+
   const handlePress = (url: string) => {
     Linking.openURL(url).catch(() => {});
   };
@@ -29,6 +34,7 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress
   const mapAddress = formatBusinessMapAddress(businessAddress, businessArea, location);
 
   if (activeLinks.length === 0 && !mapAddress) return null;
+
 
   return (
     <View style={styles.container}>
@@ -47,6 +53,7 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress
         <TouchableOpacity
           style={[styles.button, { backgroundColor: '#34A85312' }]}
           onPress={() => handlePress(openGoogleMaps(mapAddress))}
+
           activeOpacity={0.7}
         >
           <Ionicons name="location" size={22} color="#34A853" />

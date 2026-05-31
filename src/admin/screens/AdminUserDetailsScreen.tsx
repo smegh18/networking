@@ -1,25 +1,22 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { AdminLayout } from '../components/layout/AdminLayout';
 import { Section } from '../../components/layout/Section';
 import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { SocialLinks } from '../../components/profile/SocialLinks';
 import { BusinessGallery } from '../../components/profile/BusinessGallery';
 import { TagsList } from '../../components/profile/TagsList';
-import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { useAuthStore } from '../../stores/authStore';
-import { useRealtimeCollection } from '../../hooks/useRealtimeData';
-import { colors, typography, spacing } from '../../theme';
+import { useRealtimeCollection, useRealtimeRecord } from '../../hooks/useRealtimeData';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { shareToWhatsApp } from '../../utils/helpers';
 import { buildMemberPointsSummary } from '../../utils/memberPoints';
-import type { Ask, ProfileStackParamList, Chapter, Event, Meeting, Referral, VisitorInvite, Business } from '../../types';
+import type { Ask, AdminStackParamList, Chapter, Event, Meeting, Referral, VisitorInvite, Business, User } from '../../types';
 
-type Props = StackScreenProps<ProfileStackParamList, 'Profile'>;
-type ProfileTab = 'business' | 'activity';
+type Props = StackScreenProps<AdminStackParamList, 'AdminUserDetails'>;
+type ProfileTab = 'activity' | 'business';
 
 type MemberActivityItem = {
   id: string;
@@ -33,10 +30,11 @@ type MemberActivityItem = {
   accentColor: string;
 };
 
-const ProfileScreen: React.FC<Props> = ({ navigation }) => {
-  const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
-  const [activeTab, setActiveTab] = useState<ProfileTab>('business');
+const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { userId } = route.params;
+  const { value: user, loading: userLoading } = useRealtimeRecord<User | null>(`users/${userId}`, null);
+  const [activeTab, setActiveTab] = useState<ProfileTab>('activity');
+
   const { items: chapters } = useRealtimeCollection<Chapter>('chapters');
   const { items: events } = useRealtimeCollection<Event>('events');
   const { items: meetings } = useRealtimeCollection<Meeting>('meetings');
@@ -44,16 +42,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { items: asks } = useRealtimeCollection<Ask>('asks');
   const { items: visitorInvites } = useRealtimeCollection<VisitorInvite>('visitorInvites');
   const { items: businessEntries } = useRealtimeCollection<Business>('business');
+
   const chapterName = useMemo(
     () => (user?.chapterId ? chapters.find((c) => c.id === user.chapterId)?.name : undefined),
     [user?.chapterId, chapters],
   );
+
   const pointsSummary = useMemo(
     () => (user
       ? buildMemberPointsSummary({ user, events, meetings, referrals, asks, visitorInvites, business: businessEntries })
       : null),
     [asks, events, meetings, referrals, user, visitorInvites, businessEntries],
   );
+
   const totalPoints = pointsSummary?.totalPoints || 0;
   const membershipTier = getMembershipTier(totalPoints);
 
@@ -169,18 +170,43 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     );
   }, [events, meetings, referrals, user?.uid]);
 
+  if (userLoading) {
+    return (
+      <AdminLayout title="User Details" activeScreen="AdminUsers" showBackButton onBack={() => navigation.navigate('AdminUsers')}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </AdminLayout>
+    );
+  }
+
   if (!user) {
     return (
-      <ScreenWrapper uniformLayout>
-        <Text style={styles.emptyText}>{t('profile.noProfileData', 'No profile data found')}</Text>
-      </ScreenWrapper>
+      <AdminLayout title="User Details" activeScreen="AdminUsers" showBackButton onBack={() => navigation.navigate('AdminUsers')}>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No user data found</Text>
+        </View>
+      </AdminLayout>
     );
   }
 
   return (
-    <ScreenWrapper uniformLayout edges={['top']}>
+    <AdminLayout
+      title="User Details"
+      activeScreen="AdminUsers"
+      showBackButton
+      onBack={() => navigation.navigate('AdminUsers')}
+    >
+      <View style={styles.breadcrumb}>
+        <TouchableOpacity onPress={() => navigation.navigate('AdminUsers')} activeOpacity={0.7}>
+          <Text style={styles.breadcrumbLink}>User Management</Text>
+        </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} style={styles.breadcrumbIcon} />
+        <Text style={styles.breadcrumbCurrent}>{user.name}</Text>
+      </View>
 
       <ProfileHeader user={user} chapterName={chapterName} />
+
       <View style={styles.businessSection}>
         <Text style={styles.businessSectionTitle}>Membership</Text>
           <View style={styles.businessCardsRow}>
@@ -204,7 +230,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Business Section */}
       <View style={styles.businessSection}>
         <Text style={styles.businessSectionTitle}>Business</Text>
         <View style={styles.businessCardsRow}>
@@ -241,106 +266,26 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'business' && styles.tabActive]}
-          onPress={() => setActiveTab('business')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'business' && styles.tabTextActive]}>
-            {t('profile.businessInfo', 'Business Information')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={[styles.tab, activeTab === 'activity' && styles.tabActive]}
           onPress={() => setActiveTab('activity')}
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'activity' && styles.tabTextActive]}>
-            {t('profile.memberActivity', 'Member Activity')}
+            Member Activity
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'business' && styles.tabActive]}
+          onPress={() => setActiveTab('business')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'business' && styles.tabTextActive]}>
+            Business Information
           </Text>
         </TouchableOpacity>
       </View>
 
-      {activeTab === 'business' ? (
-        <>
-          <Section title={t('profile.businessInfo')}>
-            <Card>
-              <View style={styles.infoRow}>
-                <Ionicons name="briefcase-outline" size={18} color={colors.textTertiary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t('profile.category')}</Text>
-                  <Text style={styles.infoValue}>{user.businessCategory || '-'}</Text>
-                </View>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={18} color={colors.textTertiary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t('profile.location', 'Location')}</Text>
-                  <Text style={styles.infoValue}>
-                    {[user.location?.city, user.location?.state].filter(Boolean).join(', ') || '-'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="home-outline" size={18} color={colors.textTertiary} />
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t('profile.businessAddress', 'Business Address')}</Text>
-                  <Text style={styles.infoValue}>{user.businessAddress || '-'}</Text>
-                </View>
-              </View>
-              <View style={styles.divider} />
-              <Text style={styles.descriptionLabel}>{t('profile.businessDescription')}</Text>
-              <Text style={styles.description}>
-                {user.businessDescription || t('profile.noDescription', 'No description added yet')}
-              </Text>
-            </Card>
-          </Section>
-
-          {user.services && user.services.length > 0 ? (
-            <Section title={t('profile.servicesOffered')}>
-              <TagsList tags={user.services} />
-            </Section>
-          ) : null}
-
-          <Section title={t('profile.tags')}>
-            <TagsList tags={user.businessTags || []} />
-          </Section>
-
-          <Section title={t('profile.socialLinks')}>
-            <SocialLinks
-              links={user.socialLinks}
-              businessAddress={user.businessAddress}
-              businessArea={user.businessArea}
-              location={user.location}
-            />
-
-          </Section>
-
-          <Section
-            title={t('profile.businessPhotos')}
-            actionLabel={t('profile.manage')}
-            onAction={() => navigation.navigate('BusinessPhotos')}
-          >
-            <BusinessGallery photos={user.businessPhotos || []} />
-          </Section>
-
-          <View style={styles.actions}>
-            <Button
-              title={t('profile.editProfile')}
-              onPress={() => navigation.navigate('EditProfile')}
-              icon="create-outline"
-              fullWidth
-              style={styles.editButton}
-            />
-            <Button
-              title={t('profile.settings')}
-              onPress={() => navigation.navigate('Settings')}
-              icon="settings-outline"
-              variant="outline"
-              fullWidth
-            />
-          </View>
-        </>
-      ) : (
+      {activeTab === 'activity' ? (
         <>
           <Section title="Points Breakdown">
             {pointsSummary && pointsSummary.breakdown.length > 0 ? (
@@ -366,11 +311,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </Section>
 
-          <Section title={t('profile.memberActivity', 'Member Activity')}>
+          <Section title="Member Activity">
             {activityItems.length === 0 ? (
               <Card>
                 <Text style={styles.activityEmpty}>
-                  {t('profile.noMemberActivity', 'No member activity yet. Your attendance, meetings, and referrals will appear here.')}
+                  No member activity yet. Attendance, meetings, and referrals will appear here.
                 </Text>
               </Card>
             ) : (
@@ -395,16 +340,13 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                         try {
                           await Linking.openURL(shareToWhatsApp(activity.shareText));
                         } catch {
-                          Alert.alert(
-                            t('common.error', 'Error'),
-                            t('profile.shareWhatsAppFailed', 'Unable to open WhatsApp right now.'),
-                          );
+                          Alert.alert('Error', 'Unable to open WhatsApp right now.');
                         }
                       }}
                       activeOpacity={0.8}
                     >
                       <Ionicons name="logo-whatsapp" size={16} color={colors.success} />
-                      <Text style={styles.shareButtonText}>{t('profile.shareOnWhatsApp', 'Share on WhatsApp')}</Text>
+                      <Text style={styles.shareButtonText}>Share on WhatsApp</Text>
                     </TouchableOpacity>
                   </Card>
                 ))}
@@ -412,12 +354,65 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             )}
           </Section>
         </>
+      ) : (
+        <>
+          <Section title="Business Information">
+            <Card>
+              <View style={styles.infoRow}>
+                <Ionicons name="briefcase-outline" size={18} color={colors.textTertiary} />
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Category</Text>
+                  <Text style={styles.infoValue}>{user.businessCategory || '-'}</Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={18} color={colors.textTertiary} />
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Location</Text>
+                  <Text style={styles.infoValue}>
+                    {[user.location?.city, user.location?.state].filter(Boolean).join(', ') || '-'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="home-outline" size={18} color={colors.textTertiary} />
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Business Address</Text>
+                  <Text style={styles.infoValue}>{user.businessAddress || '-'}</Text>
+                </View>
+              </View>
+              <View style={styles.divider} />
+              <Text style={styles.descriptionLabel}>Business Description</Text>
+              <Text style={styles.description}>
+                {user.businessDescription || 'No description added yet'}
+              </Text>
+            </Card>
+          </Section>
+
+          {user.services && user.services.length > 0 ? (
+            <Section title="Services Offered">
+              <TagsList tags={user.services} />
+            </Section>
+          ) : null}
+
+          <Section title="Tags">
+            <TagsList tags={user.businessTags || []} />
+          </Section>
+
+          <Section title="Social Links">
+            <SocialLinks links={user.socialLinks} businessAddress={user.businessAddress} />
+          </Section>
+
+          <Section title="Business Photos">
+            <BusinessGallery photos={user.businessPhotos || []} />
+          </Section>
+        </>
       )}
-    </ScreenWrapper>
+    </AdminLayout>
   );
 };
 
-export default ProfileScreen;
+export default AdminUserDetailsScreen;
 
 function normalizeMeetingTimestamp(meeting: Meeting): string {
   if (meeting.createdAt) return meeting.createdAt;
@@ -496,69 +491,35 @@ function getMembershipTier(points: number): MembershipTier {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    padding: spacing['4xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    padding: spacing['4xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyText: {
     ...typography.body,
     color: colors.textTertiary,
-    textAlign: 'center',
-    marginTop: spacing['2xl'],
   },
-  pointsCard: {
-    marginBottom: spacing.xl,
-  },
-  pointsTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  pointsLabel: {
-    ...typography.captionMedium,
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  pointsValue: {
-    ...typography.h2,
-    color: colors.primary,
-    marginTop: spacing.xs,
-  },
-  pointsRoleBadge: {
-    backgroundColor: colors.primaryFaded,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  pointsRoleText: {
-    ...typography.captionMedium,
-    color: colors.primary,
-  },
-  pointsSubtext: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-  pointsBreakdownPreview: {
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  pointsPreviewPill: {
+  breadcrumb: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceVariant,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  pointsPreviewLabel: {
+  breadcrumbLink: {
+    ...typography.bodySmallMedium,
+    color: colors.primary,
+  },
+  breadcrumbIcon: {
+    marginHorizontal: spacing.xs,
+  },
+  breadcrumbCurrent: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  pointsPreviewValue: {
-    ...typography.bodySmallMedium,
-    color: colors.text,
   },
   tabBar: {
     flexDirection: 'row',
@@ -615,13 +576,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     lineHeight: 24,
-  },
-  actions: {
-    marginBottom: spacing['4xl'],
-
-  },
-  editButton: {
-    marginBottom: spacing.lg,
   },
   pointsList: {
     gap: spacing.md,

@@ -208,6 +208,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScreenWrapper refreshing={refreshing} onRefresh={onRefresh} padded={false} contentStyle={styles.screenContent}>
+
       <View style={[styles.heroCard, isMobile && styles.mobileCard]}>
         <View style={styles.greetingRow}>
           <View style={styles.greetingText}>

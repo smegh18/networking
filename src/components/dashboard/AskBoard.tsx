@@ -25,6 +25,7 @@ import { colors, typography, spacing, borderRadius, shadows } from '../../theme'
 import type { Ask, Chapter, User } from '../../types';
 import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
 
+
 interface AskBoardProps {
   onGiveReferral?: (ask: Ask) => void;
   onSchedule?: (ask: Ask) => void;
@@ -70,6 +71,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
 
   const categoryOptions = useMemo(() => {
     const fromAsks = asks.map((ask) => normalizeText(ask.category)).filter(Boolean);
+
     const merged = Array.from(new Set([...businessCategories, ...fromAsks])).sort();
     return merged.map((cat) => ({ value: cat, label: cat }));
   }, [asks, businessCategories]);
@@ -90,6 +92,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
       chapters
         .map((ch) => ({ value: ch.id, label: normalizeText(ch.name) }))
         .filter((ch) => !!ch.value && !!ch.label),
+
     [chapters],
   );
 
@@ -117,11 +120,13 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     const q = normalizeTextLower(subcategorySearch);
     if (!q) return subcategoryOptions;
     return subcategoryOptions.filter((tag) => normalizeTextLower(tag).includes(q));
+
   }, [subcategoryOptions, subcategorySearch]);
 
   const filteredAsks = useMemo(() => {
     let items = asks;
     const q = normalizeTextLower(searchQuery);
+
 
     if (q) {
       items = items.filter(
@@ -130,6 +135,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
           normalizeTextLower(a.category).includes(q) ||
           normalizeTextLower(a.description).includes(q) ||
           normalizeTextLower(a.askerName).includes(q),
+
       );
     }
 
@@ -140,6 +146,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     if (selectedSubcategory) {
       const wanted = normalizeTextLower(selectedSubcategory);
       items = items.filter((a) => normalizeTextLower(a.service) === wanted);
+
     }
 
     if (selectedChapter) {
@@ -160,6 +167,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     const q = normalizeTextLower(askCategorySearch);
     if (!q) return businessCategories;
     return businessCategories.filter((cat) => normalizeTextLower(cat).includes(q));
+
   }, [askCategorySearch, businessCategories]);
 
   const showCategoryDropdown = askCategoryDropdownOpen && askCategorySearch.trim().length > 0 && !askCategory;
@@ -561,6 +569,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                       <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                         {normalizeStringArray((tagsByCategory as Record<string, string[]>)[askCategory])
                           .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
+
                           .slice(0, 50)
                           .map((tag) => (
                             <TouchableOpacity

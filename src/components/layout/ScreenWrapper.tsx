@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
+import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView, Dimensions } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, layout, breakpoints } from '../../theme';
 
@@ -29,6 +31,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
 }) => {
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
+
   const isWideWeb = isWeb && width > breakpoints.lg;
   const useWebLayout = isWideWeb && !uniformLayout;
 
@@ -117,6 +120,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: spacing['4xl'],
+
     maxWidth: '100%',
   },
   webScrollContent: {
