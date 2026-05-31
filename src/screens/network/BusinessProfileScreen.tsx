@@ -149,7 +149,12 @@ const BusinessProfileScreen: React.FC<Props> = ({ navigation, route }) => {
       </Section>
 
       <Section title={t('profile.socialLinks')}>
-        <SocialLinks links={user.socialLinks} businessAddress={user.businessAddress} />
+        <SocialLinks
+          links={user.socialLinks}
+          businessAddress={user.businessAddress}
+          businessArea={user.businessArea}
+          location={user.location}
+        />
       </Section>
 
       <Section title={t('network.connect')}>

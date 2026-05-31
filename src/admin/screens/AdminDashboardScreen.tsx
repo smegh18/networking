@@ -15,7 +15,6 @@ type Props = StackScreenProps<AdminStackParamList, 'AdminDashboard'>;
 const DEFAULT_STATS: AdminDashboardStats = {
   totalUsers: 0,
   totalChapters: 0,
-  totalZones: 0,
   totalEvents: 0,
   totalMeetings: 0,
   totalReferrals: 0,
@@ -153,8 +152,8 @@ const AdminDashboardScreen: React.FC<Props> = () => {
           <Text style={styles.summaryTitle}>Platform Stats</Text>
           <View style={styles.summaryItem}>
             <View style={[styles.summaryDot, { backgroundColor: colors.info }]} />
-            <Text style={styles.summaryLabel}>Zones</Text>
-            <Text style={styles.summaryValue}>{stats.totalZones}</Text>
+            <Text style={styles.summaryLabel}>Chapters</Text>
+            <Text style={styles.summaryValue}>{stats.totalChapters}</Text>
           </View>
           <View style={styles.summaryItem}>
             <View style={[styles.summaryDot, { backgroundColor: colors.accent }]} />

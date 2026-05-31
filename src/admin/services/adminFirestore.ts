@@ -14,7 +14,6 @@ import { rtdb } from '../../../firebase.config';
 import type {
   User,
   Chapter,
-  Zone,
   Event,
   Meeting,
   Referral,
@@ -54,11 +53,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   const TIMEOUT = 8000;
 
-  const [usersSnap, chaptersSnap, zonesSnap, eventsSnap, meetingsSnap, referralsSnap, adsSnap, asksSnap] =
+  const [usersSnap, chaptersSnap, eventsSnap, meetingsSnap, referralsSnap, adsSnap, asksSnap] =
     await Promise.all([
       withTimeout(get(ref(rtdb, 'users')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'chapters')), TIMEOUT),
-      withTimeout(get(ref(rtdb, 'zones')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'events')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'meetings')), TIMEOUT),
       withTimeout(get(ref(rtdb, 'referrals')), TIMEOUT),
@@ -68,7 +66,6 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
   const users = usersSnap ? snapToArray<User>(usersSnap, 'uid') : [];
   const chapters = chaptersSnap ? snapToArray<Chapter>(chaptersSnap) : [];
-  const zones = zonesSnap ? snapToArray<Zone>(zonesSnap) : [];
   const events = eventsSnap ? snapToArray<Event>(eventsSnap) : [];
   const meetings = meetingsSnap ? snapToArray<Meeting>(meetingsSnap) : [];
   const referrals = referralsSnap ? snapToArray<Referral>(referralsSnap) : [];
@@ -79,7 +76,6 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   return {
     totalUsers: users.length,
     totalChapters: chapters.length,
-    totalZones: zones.length,
     totalEvents: events.length,
     totalMeetings: meetings.length,
     totalReferrals: referrals.length,
@@ -145,7 +141,7 @@ export async function deleteUserDoc(uid: string): Promise<void> {
   await remove(ref(rtdb, `users/${uid}`));
 }
 
-// ── Chapter & Zone CRUD ───────────────────────────────────────────────────────
+// ── Chapter CRUD ──────────────────────────────────────────────────────────────
 
 export async function getAllChapters(): Promise<Chapter[]> {
   const snap = await get(ref(rtdb, 'chapters'));
@@ -166,25 +162,34 @@ export async function updateChapter(id: string, data: Partial<Chapter>): Promise
 
 export async function deleteChapter(id: string): Promise<void> {
   await remove(ref(rtdb, `chapters/${id}`));
+  await syncEventsAfterChapterDelete(id);
 }
 
-export async function getAllZones(): Promise<Zone[]> {
-  const snap = await get(ref(rtdb, 'zones'));
-  return snapToArray<Zone>(snap);
-}
+async function syncEventsAfterChapterDelete(deletedChapterId: string): Promise<void> {
+  const eventsSnap = await get(ref(rtdb, 'events'));
+  if (!eventsSnap.exists()) return;
 
-export async function createZone(zone: Omit<Zone, 'id'>): Promise<string> {
-  const newRef = push(ref(rtdb, 'zones'));
-  await set(newRef, zone);
-  return newRef.key!;
-}
+  const updates: Record<string, unknown> = {};
+  const events = snapToArray<Event>(eventsSnap);
 
-export async function updateZone(id: string, data: Partial<Zone>): Promise<void> {
-  await update(ref(rtdb, `zones/${id}`), data);
-}
+  events.forEach((event) => {
+    const nextChapterIds = Array.from(
+      new Set((event.chapterIds || []).map((chapterId) => String(chapterId || '').trim()).filter(Boolean)),
+    ).filter((chapterId) => chapterId !== deletedChapterId);
 
-export async function deleteZone(id: string): Promise<void> {
-  await remove(ref(rtdb, `zones/${id}`));
+    const currentChapterId = String(event.chapterId || '').trim();
+    if (currentChapterId !== deletedChapterId && nextChapterIds.length === (event.chapterIds || []).length) {
+      return;
+    }
+
+    updates[`events/${event.id}/chapterIds`] = nextChapterIds;
+    updates[`events/${event.id}/chapterId`] = nextChapterIds.length > 0 ? nextChapterIds[0] : 'all';
+    updates[`events/${event.id}/updatedAt`] = toISO();
+  });
+
+  if (Object.keys(updates).length > 0) {
+    await update(ref(rtdb), updates);
+  }
 }
 
 // ── Event Management ──────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows } from '../../theme';
 import type { DashboardStackParamList, User } from '../../types';
+import { normalizeText, normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<DashboardStackParamList, 'ScheduleMeeting'>;
 
@@ -193,14 +194,19 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           const val = snap.val();
           const list = Object.entries(val)
             .map(([key, data]) => ({ ...(data as any), uid: key } as User))
-            .filter((u) => u.uid !== currentUser?.uid && u.role !== 'admin' && u.role !== 'superadmin');
+            .filter((u) => (
+              u.uid !== currentUser?.uid
+              && u.role !== 'admin'
+              && u.role !== 'superadmin'
+              && normalizeText(u.name).length > 0
+            ));
           setMembers(list);
 
           if (preselectedUserId) {
             const found = list.find((m) => m.uid === preselectedUserId);
             if (found) {
               setSelectedMember(found);
-              setMemberSearch(found.name);
+              setMemberSearch(normalizeText(found.name));
             }
           }
         }
@@ -213,11 +219,11 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return members;
-    const q = memberSearch.toLowerCase();
+    const q = normalizeTextLower(memberSearch);
     return members.filter(
       (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.businessName.toLowerCase().includes(q),
+        normalizeTextLower(m.name).includes(q) ||
+        normalizeTextLower(m.businessName).includes(q),
     );
   }, [members, memberSearch]);
 
@@ -225,7 +231,7 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleSelectMember = (member: User) => {
     setSelectedMember(member);
-    setMemberSearch(member.name);
+    setMemberSearch(normalizeText(member.name));
     if (member.phone) setContactNumber(member.phone);
     setDropdownOpen(false);
     if (errors.member) setErrors((prev) => ({ ...prev, member: undefined }));

@@ -20,31 +20,22 @@ function pastDate(days) {
   return d.toISOString().split('T')[0];
 }
 
-// ── Zones ──
-const zones = {
-  zone001: { name: 'West Zone', region: 'Gujarat', chapterCount: 2 },
-  zone002: { name: 'Central Zone', region: 'Maharashtra', chapterCount: 1 },
-};
-
 // ── Chapters ──
 const chapters = {
   chapter001: {
     name: 'Ahmedabad Business Club',
-    zoneId: 'zone001',
     location: { city: 'Ahmedabad', state: 'Gujarat' },
     memberCount: 5,
     createdAt: pastDate(180),
   },
   chapter002: {
     name: 'Surat Entrepreneurs Hub',
-    zoneId: 'zone001',
     location: { city: 'Surat', state: 'Gujarat' },
     memberCount: 3,
     createdAt: pastDate(120),
   },
   chapter003: {
     name: 'Mumbai Biz Network',
-    zoneId: 'zone002',
     location: { city: 'Mumbai', state: 'Maharashtra' },
     memberCount: 2,
     createdAt: pastDate(90),
@@ -67,7 +58,6 @@ const users = {
     businessAddress: '123 Ring Road, Ahmedabad',
     socialLinks: { instagram: '@pateltextiles', facebook: 'pateltextiles', whatsapp: '+919876543210', linkedin: 'rajeshpatel', google: '' },
     chapterId: 'chapter001',
-    zoneId: 'zone001',
     location: { city: 'Ahmedabad', state: 'Gujarat' },
     dateOfBirth: '1985-03-15',
     language: 'en',
@@ -91,7 +81,6 @@ const users = {
     businessAddress: '45 SG Highway, Ahmedabad',
     socialLinks: { instagram: '@shahit', facebook: 'shahitsolutions', whatsapp: '+919876543211', linkedin: 'priyashah', google: '' },
     chapterId: 'chapter001',
-    zoneId: 'zone001',
     location: { city: 'Ahmedabad', state: 'Gujarat' },
     dateOfBirth: '1990-07-22',
     language: 'en',
@@ -115,7 +104,6 @@ const users = {
     businessAddress: '78 Industrial Area, Surat',
     socialLinks: { instagram: '@desaiconstruction', facebook: 'desaiconstruction', whatsapp: '+919876543212', linkedin: 'amitdesai', google: '' },
     chapterId: 'chapter002',
-    zoneId: 'zone001',
     location: { city: 'Surat', state: 'Gujarat' },
     dateOfBirth: '1982-11-05',
     language: 'gu',
@@ -139,7 +127,6 @@ const users = {
     businessAddress: '12 Law Garden, Ahmedabad',
     socialLinks: { instagram: '', facebook: 'mehtalegal', whatsapp: '+919876543213', linkedin: 'nehamehta', google: '' },
     chapterId: 'chapter001',
-    zoneId: 'zone001',
     location: { city: 'Ahmedabad', state: 'Gujarat' },
     dateOfBirth: '1988-01-30',
     language: 'hi',
@@ -163,7 +150,6 @@ const users = {
     businessAddress: '90 FC Road, Mumbai',
     socialLinks: { instagram: '@joshifinance', facebook: 'joshifinance', whatsapp: '+919876543214', linkedin: 'vikramjoshi', google: '' },
     chapterId: 'chapter003',
-    zoneId: 'zone002',
     location: { city: 'Mumbai', state: 'Maharashtra' },
     dateOfBirth: '1979-09-18',
     language: 'en',
@@ -187,7 +173,6 @@ const users = {
     businessAddress: '56 MG Road, Surat',
     socialLinks: { instagram: '@sharmamarketing', facebook: 'sharmaagency', whatsapp: '+919876543215', linkedin: 'anitasharma', google: '' },
     chapterId: 'chapter002',
-    zoneId: 'zone001',
     location: { city: 'Surat', state: 'Gujarat' },
     dateOfBirth: '1993-05-12',
     language: 'en',
@@ -211,7 +196,6 @@ const users = {
     businessAddress: '34 GIDC Estate, Ahmedabad',
     socialLinks: { instagram: '', facebook: 'modipharma', whatsapp: '+919876543216', linkedin: 'karanmodi', google: '' },
     chapterId: 'chapter001',
-    zoneId: 'zone001',
     location: { city: 'Ahmedabad', state: 'Gujarat' },
     dateOfBirth: '1986-12-08',
     language: 'gu',
@@ -235,7 +219,6 @@ const users = {
     businessAddress: '22 Juhu Beach Road, Mumbai',
     socialLinks: { instagram: '@nairfoods', facebook: 'naircatering', whatsapp: '+919876543217', linkedin: 'deepanair', google: '' },
     chapterId: 'chapter003',
-    zoneId: 'zone002',
     location: { city: 'Mumbai', state: 'Maharashtra' },
     dateOfBirth: '1991-04-25',
     language: 'en',
@@ -545,7 +528,6 @@ const notifications = {
 // ── Seed function ──
 async function seed() {
   const data = {
-    zones,
     chapters,
     users,
     events,

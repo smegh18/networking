@@ -204,7 +204,6 @@
     "tags": "Tags",
     "category": "Category",
     "chapter": "Chapter",
-    "zone": "Zone",
     "location": "Location",
     "memberSince": "Member since",
     "profileCompletion": "Profile Completion",
@@ -497,7 +496,7 @@
   "admin": {
     "dashboard": "Dashboard",
     "users": "User Management",
-    "chapters": "Chapters & Zones",
+    "chapters": "Chapters",
     "events": "Event Management",
     "referrals": "Referral Management",
     "ads": "Ad Management",

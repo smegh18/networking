@@ -41,7 +41,6 @@ function buildMinimalAdminUser(uid: string, email: string): Omit<User, 'uid'> & 
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
     chapterId: '',
-    zoneId: '',
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: 'en',

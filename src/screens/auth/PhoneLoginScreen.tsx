@@ -20,6 +20,8 @@ import { sendPhoneOtp, getRecaptchaContainerId, resetWebRecaptchaVerifier } from
 import type { PhoneOtpResult } from '../../services/firebase/phoneAuth';
 import { signOut as appSignOut } from '../../services/firebase/auth';
 import { findUserProfileByPhone, resolveUserProfileForFirebaseUser } from '../../services/firebase/userProfile';
+import { setPendingRegistration } from '../../services/onboarding/pendingRegistration';
+import { useAuthStore } from '../../stores/authStore';
 import { colors, typography, spacing, layout, shadows } from '../../theme';
 import type { AuthStackParamList } from '../../types';
 
@@ -30,8 +32,10 @@ const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 60;
 const PHONE_OTP_SEND_TIMEOUT_MS = 25_000;
 
-const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
+const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
   const { t } = useTranslation();
+  const setNewUser = useAuthStore((s) => s.setNewUser);
+  const isRegisterMode = route.params?.mode === 'register';
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -100,8 +104,8 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
     setIsSendingOtp(true);
     try {
       // Before sending OTP, ensure this phone is already registered in RTDB.
-      const registeredUser = await findUserProfileByPhone(normalizedPhone);
-      if (!registeredUser) {
+      const registeredUser = isRegisterMode ? null : await findUserProfileByPhone(normalizedPhone);
+      if (!isRegisterMode && !registeredUser) {
         setIsSendingOtp(false);
         Alert.alert(
           t('login.title', 'Login'),
@@ -114,10 +118,7 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
             {
               text: t('auth.register', 'Create Account'),
               onPress: () => {
-                // Go to email-based registration flow
-                // (Login screen in register mode leads to Register after OTP).
-                // We don't start phone auth for unregistered numbers.
-                (navigation as any).navigate('Login', { mode: 'register' });
+                navigation.navigate('PhoneLogin', { mode: 'register' });
               },
             },
           ],
@@ -148,7 +149,7 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setIsSendingOtp(false);
     }
-  }, [navigation, normalizedPhone, phoneE164, t]);
+  }, [isRegisterMode, navigation, normalizedPhone, phoneE164, t]);
 
   const handleResendOtp = useCallback(async () => {
     if (!canResend || normalizedPhone.length !== 10) return;
@@ -221,6 +222,29 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
 
       setConfirmationResult(null);
       setOtp('');
+      if (isRegisterMode) {
+        if (matchedProfile?.profileComplete !== false && matchedProfile?.businessName) {
+          setNewUser(false);
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'BiometricSetup' }],
+          });
+          return;
+        }
+
+        setNewUser(true);
+        try {
+          await setPendingRegistration(firebaseUser.uid);
+        } catch {
+          // ignore
+        }
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Register', params: { phone: normalizedPhone } }],
+        });
+        return;
+      }
+
       if (matchedProfile) {
         navigation.reset({
           index: 0,
@@ -243,7 +267,7 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
             { text: t('common.cancel', 'Cancel'), style: 'cancel' },
             {
               text: t('auth.register', 'Create Account'),
-              onPress: () => navigation.navigate('Login', { mode: 'register' }),
+              onPress: () => navigation.navigate('PhoneLogin', { mode: 'register' }),
             },
           ],
         );
@@ -253,13 +277,13 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setIsVerifying(false);
     }
-  }, [otp, confirmationResult, navigation, phoneE164, t]);
+  }, [isRegisterMode, normalizedPhone, otp, confirmationResult, navigation, phoneE164, setNewUser, t]);
 
   const showOtpStep = !!confirmationResult;
 
   return (
     <ScreenWrapper padded={false} scrollable={false}>
-      <Header title={t('login.title', 'Login')} onBack={() => navigation.goBack()} />
+      <Header title={isRegisterMode ? t('register.title', 'Create Account') : t('login.title', 'Login')} onBack={() => navigation.goBack()} />
       <View style={styles.container}>
         <View style={styles.illustrationContainer}>
           <View style={styles.illustrationCircle}>
@@ -269,14 +293,18 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.heading}>
           {showOtpStep
             ? t('login.verifyOtpHeading', 'Enter verification code')
-            : t('login.phoneHeading', 'Login with mobile number')}
+            : isRegisterMode
+              ? t('register.verifyPhoneHeading', 'Verify your mobile number')
+              : t('login.phoneHeading', 'Login with mobile number')}
         </Text>
         <Text style={styles.description}>
           {showOtpStep
             ? t('login.otpSentToPhone', 'We sent a 6-digit code to {{phone}}', {
                 phone: `${DEFAULT_COUNTRY_CODE} ${normalizedPhone}`,
               })
-            : t('login.phoneDescription', 'Enter your 10-digit mobile number to receive an OTP.')}
+            : isRegisterMode
+              ? t('register.verifyPhoneDescription', 'Enter your mobile number first. This number will be used to create your account.')
+              : t('login.phoneDescription', 'Enter your 10-digit mobile number to receive an OTP.')}
         </Text>
 
         {!showOtpStep ? (

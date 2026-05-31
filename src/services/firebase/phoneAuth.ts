@@ -19,6 +19,10 @@ function getErrorCode(err: unknown): string {
     : '';
 }
 
+function getPhoneTail(value: string | null | undefined): string {
+  return String(value ?? '').replace(/\D/g, '').slice(-10);
+}
+
 function normalizeNativePhoneAuthError(err: unknown): Error {
   const code =
     err && typeof err === 'object' && typeof (err as { code?: unknown }).code === 'string'
@@ -85,6 +89,7 @@ async function sendPhoneOtpOnWeb(phoneE164: string): Promise<ConfirmationResult>
 
 /** Result type: web uses ConfirmationResult; native uses RN Firebase ConfirmationResult */
 export type PhoneOtpResult = ConfirmationResult | { confirm: (code: string) => Promise<any> };
+export type PhoneLinkOtpResult = ConfirmationResult | { verificationId: string; autoVerifiedCode?: string | null };
 
 /**
  * Send SMS OTP to the given E.164 phone number (for sign-in).
@@ -115,13 +120,14 @@ export async function sendPhoneOtp(
 export async function sendPhoneOtpForLinking(
   phoneE164: string,
   _recaptcha?: unknown,
-): Promise<PhoneOtpResult | null> {
+  forceResend = true,
+): Promise<PhoneLinkOtpResult | null> {
   if (Platform.OS === 'web') {
     return sendPhoneOtpOnWeb(phoneE164);
   }
   try {
     const { verifyPhoneNumberForLinkingNative } = require('./phoneAuthNative');
-    const result = await verifyPhoneNumberForLinkingNative(phoneE164);
+    const result = await verifyPhoneNumberForLinkingNative(phoneE164, forceResend);
     // RN Firebase types allow `verificationId` to be null; treat that as a hard error
     // so the UI can show a meaningful message instead of silently failing later.
     if (!result?.verificationId) {
@@ -144,6 +150,7 @@ export async function sendPhoneOtpForLinking(
 export async function verifyPhoneOtpAndLink(
   verificationId: string,
   code: string,
+  expectedPhoneE164?: string,
 ): Promise<void> {
   const codeDigits = code.replace(/\D/g, '');
   if (Platform.OS === 'web') {
@@ -158,6 +165,9 @@ export async function verifyPhoneOtpAndLink(
       user.providerData?.some((p) => p?.providerId === 'phone') || !!user.phoneNumber;
 
     if (alreadyHasPhoneProvider) {
+      if (expectedPhoneE164 && getPhoneTail(user.phoneNumber) === getPhoneTail(expectedPhoneE164)) {
+        return;
+      }
       await updatePhoneNumber(user, credential);
       return;
     }
@@ -177,6 +187,9 @@ export async function verifyPhoneOtpAndLink(
       || !!currentUser.phoneNumber;
 
     if (alreadyHasPhoneProvider && typeof currentUser.updatePhoneNumber === 'function') {
+      if (expectedPhoneE164 && getPhoneTail(currentUser.phoneNumber) === getPhoneTail(expectedPhoneE164)) {
+        return;
+      }
       await currentUser.updatePhoneNumber(credential);
       return;
     }

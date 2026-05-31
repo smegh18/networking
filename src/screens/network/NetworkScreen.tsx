@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useBusinessConfig, useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, layout } from '../../theme';
 import type { NetworkStackParamList, User, Chapter } from '../../types';
+import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<NetworkStackParamList, 'Network'>;
 
@@ -27,27 +28,27 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const locations = useMemo(
-    () => Array.from(new Set(users.map((user) => user.location?.city).filter(Boolean) as string[])),
+    () => Array.from(new Set(users.map((user) => normalizeText(user.location?.city)).filter(Boolean))),
     [users],
   );
 
   const filteredMembers = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+    const q = normalizeTextLower(searchQuery);
     return users
       .filter((user) => user.uid !== currentUser?.uid)
       .filter((user) => (user.isActive !== false))
       .filter((user) => {
         if (!q) return true;
         return (
-          user.name.toLowerCase().includes(q) ||
-          user.businessName.toLowerCase().includes(q) ||
-          user.businessCategory.toLowerCase().includes(q) ||
-          (user.businessTags || []).some((tag) => tag.toLowerCase().includes(q))
+          normalizeTextLower(user.name).includes(q) ||
+          normalizeTextLower(user.businessName).includes(q) ||
+          normalizeTextLower(user.businessCategory).includes(q) ||
+          normalizeStringArray(user.businessTags).some((tag) => normalizeTextLower(tag).includes(q))
         );
       })
       .filter((user) => (!selectedChapter || user.chapterId === selectedChapter))
-      .filter((user) => (!selectedLocation || user.location?.city === selectedLocation))
-      .filter((user) => (!selectedCategory || user.businessCategory === selectedCategory));
+      .filter((user) => (!selectedLocation || normalizeText(user.location?.city) === selectedLocation))
+      .filter((user) => (!selectedCategory || normalizeText(user.businessCategory) === selectedCategory));
   }, [currentUser?.uid, searchQuery, selectedCategory, selectedChapter, selectedLocation, users]);
 
   return (
@@ -70,13 +71,15 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
       >
         <View style={styles.filterBarWrap}>
           <FilterBar
-            chapters={chapters.map((ch) => ({ id: ch.id, name: ch.name }))}
+            chapters={chapters
+              .map((ch) => ({ id: ch.id, name: normalizeText(ch.name) }))
+              .filter((ch) => !!ch.id && !!ch.name)}
             selectedChapter={selectedChapter}
             onChapterSelect={setSelectedChapter}
             locations={locations}
             selectedLocation={selectedLocation}
             onLocationSelect={setSelectedLocation}
-            categories={businessConfig.businessCategories}
+            categories={normalizeStringArray(businessConfig.businessCategories)}
             selectedCategory={selectedCategory}
             onCategorySelect={setSelectedCategory}
           />

@@ -16,6 +16,7 @@ import {
   getLeadershipRoleDefaultPoints,
   LEADERSHIP_ROLE_OPTIONS,
 } from '../../utils/memberPoints';
+import { normalizeTextLower } from '../../utils/helpers';
 import type { AccessRole, Ask, Event, LeadershipRole, Meeting, Referral, User, VisitorInvite, Business, Chapter } from '../../types';
 import type { AdminStackParamList } from '../types/admin';
 
@@ -82,13 +83,13 @@ const AdminRolesScreen: React.FC<Props> = () => {
   }), [asks, events, meetings, referrals, users, visitorInvites, business]);
 
   const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeTextLower(search);
     if (!query) return roleRows;
     return roleRows.filter(({ user, leadershipRoleLabel }) =>
-      user.name.toLowerCase().includes(query)
-      || user.email.toLowerCase().includes(query)
-      || leadershipRoleLabel.toLowerCase().includes(query)
-      || (user.leadershipRoleCity || '').toLowerCase().includes(query),
+      normalizeTextLower(user.name).includes(query)
+      || normalizeTextLower(user.email).includes(query)
+      || normalizeTextLower(leadershipRoleLabel).includes(query)
+      || normalizeTextLower(user.leadershipRoleCity).includes(query),
     );
   }, [roleRows, search]);
 

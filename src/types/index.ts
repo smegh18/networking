@@ -29,10 +29,10 @@ export interface User {
   businessPhotos: string[];
   services?: string[];
   businessAddress?: string;
+  businessArea?: string;
   isWhatsAppSame?: boolean;
   socialLinks: SocialLinks;
   chapterId: string;
-  zoneId: string;
   location: Location;
   dateOfBirth: string;
   language: Language;
@@ -60,22 +60,19 @@ export interface SocialLinks {
 export interface Location {
   city: string;
   state: string;
+  area?: string;
+  pinCode?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Chapter {
   id: string;
   name: string;
-  zoneId: string;
   location: Location;
   memberCount: number;
   createdAt: string;
-}
-
-export interface Zone {
-  id: string;
-  name: string;
-  region: string;
-  chapterCount: number;
 }
 
 export type EventAttendanceStatus = 'attending' | 'not_attending' | 'substituted';
@@ -265,9 +262,9 @@ export type RootStackParamList = {
 export type AuthStackParamList = {
   Welcome: undefined;
   Login: { mode?: 'register' };
-  PhoneLogin: undefined;
+  PhoneLogin: { mode?: 'register' } | undefined;
   OTPVerification: { email: string };
-  Register: { email?: string };
+  Register: { email?: string; phone?: string };
   BiometricSetup: undefined;
   LanguageSelect: undefined;
   AdminLogin: undefined;

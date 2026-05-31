@@ -48,6 +48,10 @@ type Props = StackScreenProps<AdminStackParamList, 'AdminEventForm'>;
 const Sidebar = React.memo(AdminSidebar);
 const isWeb = Platform.OS === 'web';
 
+function isValidChapter(chapter: Chapter | null | undefined): boolean {
+  return !!chapter?.id && !!String(chapter.name || '').trim();
+}
+
 function DatePickerField({
   value,
   onChange,
@@ -220,6 +224,10 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
   const isEdit = !!eventId;
 
   const { items: chapters } = useRealtimeCollection<Chapter>('chapters');
+  const availableChapters = useMemo(
+    () => chapters.filter((chapter) => isValidChapter(chapter)),
+    [chapters],
+  );
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -242,10 +250,10 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // Initialize audience
   useEffect(() => {
-    if (audienceInitialized || !chapters?.length) return;
+    if (audienceInitialized || !availableChapters.length) return;
 
     if (!isEdit) {
-      setSelectedChapterIds(chapters.map((c) => c.id));
+      setSelectedChapterIds(availableChapters.map((c) => c.id));
       setAudienceInitialized(true);
       return;
     }
@@ -253,9 +261,9 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!loadedEvent) return;
 
     if (isCentralEvent(loadedEvent)) {
-      setSelectedChapterIds(chapters.map((c) => c.id));
+      setSelectedChapterIds(availableChapters.map((c) => c.id));
     } else {
-      const valid = new Set(chapters.map((c) => c.id));
+      const valid = new Set(availableChapters.map((c) => c.id));
       setSelectedChapterIds(
         getEventAudienceChapterIds(loadedEvent).filter((id) =>
           valid.has(id)
@@ -264,7 +272,7 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     setAudienceInitialized(true);
-  }, [chapters, loadedEvent, isEdit, audienceInitialized]);
+  }, [availableChapters, loadedEvent, isEdit, audienceInitialized]);
 
   const loadEvent = async (id: string) => {
     try {
@@ -294,18 +302,25 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    if (availableChapters.length === 0) {
+      Alert.alert('Error', 'Create at least one chapter before creating an event.');
+      return;
+    }
+
     const uniqueIds = Array.from(
       new Set(
         selectedChapterIds.map((id) => String(id || '').trim()).filter(Boolean)
       )
     );
 
-    const allIds = chapters.map((c) => c.id);
+    const validIds = new Set(availableChapters.map((c) => c.id));
+    const syncedIds = uniqueIds.filter((id) => validIds.has(id));
+    const allIds = availableChapters.map((c) => c.id);
 
     const isAll =
-      chapters.length === 0 || uniqueIds.length === allIds.length;
+      syncedIds.length === allIds.length;
 
-    if (!isAll && uniqueIds.length === 0) {
+    if (!isAll && syncedIds.length === 0) {
       Alert.alert('Error', 'Select at least one chapter.');
       return;
     }
@@ -331,8 +346,8 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
         type,
         organizer: '',
         organizerName: organizerName.trim(),
-        chapterId: isAll ? 'all' : uniqueIds[0],
-        chapterIds: isAll ? allIds : uniqueIds,
+        chapterId: isAll ? 'all' : syncedIds[0],
+        chapterIds: isAll ? allIds : syncedIds,
         imageURL: finalImageURL,
       };
 
@@ -375,8 +390,8 @@ const AdminEventFormScreen: React.FC<Props> = ({ navigation, route }) => {
   ];
 
   const chapterOptions = useMemo(
-    () => chapters.map((c) => ({ key: c.id, label: c.name })),
-    [chapters]
+    () => availableChapters.map((c) => ({ key: c.id, label: c.name })),
+    [availableChapters]
   );
 
   const audienceSummary = useMemo(() => {

@@ -184,6 +184,71 @@ exports.verifyEmailOtp = functions.region('us-central1').https.onCall(async (dat
 });
 
 /**
+ * Callable: verifyEmailOtpAndAttach
+ * Body: { email: string, code: string }
+ * Verifies the OTP, then attaches the verified email to the currently signed-in Auth user.
+ * Used by phone-first registration so the Firebase Auth account is created with phone first.
+ */
+exports.verifyEmailOtpAndAttach = functions.region('us-central1').https.onCall(async (data, context) => {
+  let uid = context.auth && context.auth.uid ? String(context.auth.uid) : '';
+  const idToken = data && data.idToken ? String(data.idToken) : '';
+  if (!uid && idToken) {
+    try {
+      const decoded = await AUTH.verifyIdToken(idToken);
+      uid = decoded.uid;
+    } catch (e) {
+      throw new functions.https.HttpsError('unauthenticated', 'Phone verification session expired. Please restart registration.');
+    }
+  }
+
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
+  }
+
+  const email = (data && data.email) ? String(data.email).trim().toLowerCase() : '';
+  const code = (data && data.code) ? String(data.code).trim().replace(/\D/g, '') : '';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid email is required.');
+  }
+  if (code.length !== OTP_LENGTH) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid or expired code.');
+  }
+
+  try {
+    const existingAuthUser = await AUTH.getUserByEmail(email);
+    if (existingAuthUser.uid !== uid) {
+      throw new functions.https.HttpsError('already-exists', 'This email is already registered. Please login instead.');
+    }
+  } catch (e) {
+    if (e instanceof functions.https.HttpsError) throw e;
+    if (!e || e.code !== 'auth/user-not-found') {
+      throw new functions.https.HttpsError('internal', 'Auth error.');
+    }
+  }
+
+  const rtdbUid = await findRtdbUidByEmail(email);
+  if (rtdbUid && rtdbUid !== uid) {
+    throw new functions.https.HttpsError('already-exists', 'This email is already registered. Please login instead.');
+  }
+
+  const docId = sanitizeEmailForDocId(email);
+  const otpRef = FIRESTORE.collection('emailOtps').doc(docId);
+  const otpSnap = await otpRef.get();
+  if (!otpSnap.exists) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid or expired code.');
+  }
+  const { code: storedCode, expiresAt } = otpSnap.data();
+  if (storedCode !== code || (expiresAt && expiresAt < Date.now())) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid or expired code.');
+  }
+
+  await AUTH.updateUser(uid, { email, emailVerified: true });
+  await otpRef.delete();
+
+  return { email };
+});
+
+/**
  * Callable: checkIdentifiers
  * Body: { email?: string, phone?: string, excludeUid?: string }
  * Checks whether the email/phone are already used in Firebase Auth or RTDB.

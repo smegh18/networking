@@ -305,7 +305,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </Section>
 
           <Section title={t('profile.socialLinks')}>
-            <SocialLinks links={user.socialLinks} businessAddress={user.businessAddress} />
+            <SocialLinks
+              links={user.socialLinks}
+              businessAddress={user.businessAddress}
+              businessArea={user.businessArea}
+              location={user.location}
+            />
           </Section>
 
           <Section

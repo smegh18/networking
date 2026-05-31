@@ -15,6 +15,10 @@ const EMAIL_STORAGE_KEY = 'netconnect_signin_email';
 
 const sendEmailOtpCallable = httpsCallable<{ email: string }, { success: boolean }>(functions, 'sendEmailOtp');
 const verifyEmailOtpCallable = httpsCallable<{ email: string; code: string }, { token: string }>(functions, 'verifyEmailOtp');
+const verifyEmailOtpAndAttachCallable = httpsCallable<{ email: string; code: string; idToken?: string }, { email: string }>(
+  functions,
+  'verifyEmailOtpAndAttach',
+);
 const checkIdentifiersCallable = httpsCallable<
   { email?: string; phone?: string; excludeUid?: string },
   { emailInUse: boolean; phoneInUse: boolean; emailUid?: string; phoneUid?: string }
@@ -58,6 +62,39 @@ export async function verifyEmailOtpAndSignIn(email: string, code: string): Prom
   const credential = await signInWithCustomToken(auth, token);
   await AsyncStorage.setItem(EMAIL_STORAGE_KEY, normalized);
   return credential.user;
+}
+
+/**
+ * Verify an email OTP and attach the verified email to the current phone-auth user.
+ */
+export async function verifyEmailOtpAndAttach(email: string, code: string): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  const codeDigits = code.replace(/\D/g, '');
+  let idToken = '';
+  if (Platform.OS !== 'web') {
+    const authNative = require('@react-native-firebase/auth').default;
+    idToken = await authNative().currentUser?.getIdToken() ?? '';
+  } else {
+    idToken = await auth.currentUser?.getIdToken() ?? '';
+  }
+
+  try {
+    const { data } = await verifyEmailOtpAndAttachCallable({ email: normalized, code: codeDigits, idToken });
+    return (data as { email: string }).email;
+  } catch (err: unknown) {
+    const rawCode = err && typeof (err as { code?: string }).code === 'string' ? (err as { code: string }).code : '';
+    const message = err && typeof (err as { message?: string }).message === 'string'
+      ? (err as { message: string }).message
+      : 'Email verification failed. Please try again.';
+
+    if (rawCode === 'functions/not-found' || rawCode === 'not-found' || message === 'not-found') {
+      throw new Error('Email verification backend is not deployed yet. Deploy Cloud Functions and try again.');
+    }
+    if (rawCode === 'functions/unauthenticated' || rawCode === 'unauthenticated') {
+      throw new Error('Your phone login session expired. Please restart registration and verify your phone again.');
+    }
+    throw err;
+  }
 }
 
 export async function checkIdentifiersAvailability(args: {

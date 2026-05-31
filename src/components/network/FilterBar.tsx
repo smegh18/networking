@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { spacing, layout, colors, typography, borderRadius, shadows } from '../../theme';
+import { normalizeText, normalizeTextLower, normalizeStringArray } from '../../utils/helpers';
 
 interface FilterBarProps {
   chapters: { id: string; name: string }[];
@@ -63,13 +64,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 }) => {
   const dropdownMaxHeight = useDropdownMaxHeight(220);
   const selectedLabel = selectedValue
-    ? options.find((opt) => opt.value === selectedValue)?.label ?? allLabel
+    ? normalizeText(options.find((opt) => opt.value === selectedValue)?.label) || allLabel
     : allLabel;
 
   const filteredOptions = useMemo(() => {
-    const q = searchValue.toLowerCase().trim();
+    const q = normalizeTextLower(searchValue);
     if (!q) return options;
-    return options.filter((opt) => opt.label.toLowerCase().includes(q));
+    return options.filter((opt) => normalizeTextLower(opt.label).includes(q));
   }, [options, searchValue]);
 
   const displayValue = isOpen ? searchValue : selectedLabel;
@@ -160,15 +161,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const [categorySearch, setCategorySearch] = useState('');
 
   const chapterOptions = useMemo(
-    () => chapters.map((ch) => ({ value: ch.id, label: ch.name })),
+    () =>
+      chapters
+        .map((ch) => ({ value: ch.id, label: normalizeText(ch.name) }))
+        .filter((ch) => !!ch.value && !!ch.label),
     [chapters],
   );
   const locationOptions = useMemo(
-    () => locations.map((loc) => ({ value: loc, label: loc })),
+    () => normalizeStringArray(locations).map((loc) => ({ value: loc, label: loc })),
     [locations],
   );
   const categoryOptions = useMemo(
-    () => (categories ?? []).map((cat) => ({ value: cat, label: cat })),
+    () => normalizeStringArray(categories).map((cat) => ({ value: cat, label: cat })),
     [categories],
   );
 

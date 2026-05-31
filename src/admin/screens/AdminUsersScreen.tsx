@@ -28,6 +28,7 @@ import {
 
 import type { AdminStackParamList } from "../types/admin";
 import type { User } from "../../types";
+import { normalizeTextLower } from "../../utils/helpers";
 
 type Props = StackScreenProps<AdminStackParamList, "AdminUsers">;
 
@@ -64,11 +65,11 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       result = result.filter((u) => u.isActive === false);
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = normalizeTextLower(search);
       result = result.filter(
         (u) =>
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
+          normalizeTextLower(u.name).includes(q) ||
+          normalizeTextLower(u.email).includes(q)
       );
     }
 

@@ -101,6 +101,7 @@
       "./plugins/withAdiRegistration"
     ],
     "extra": {
+      "googlePlacesApiKey": "AIzaSyBW17GibxjFB5Vv9OyvX69suaDtF2X67ic",
       "eas": {
         "projectId": "fb43b211-a69e-4c62-ab93-f2406b71c6db"
       }

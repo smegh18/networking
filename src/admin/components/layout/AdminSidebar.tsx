@@ -34,7 +34,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { key: 'AdminUsers', label: 'Users', icon: 'people-outline', iconActive: 'people' },
       { key: 'AdminRoles', label: 'Role Management', icon: 'ribbon-outline', iconActive: 'ribbon' },
-      { key: 'AdminChapters', label: 'Chapters & Zones', icon: 'business-outline', iconActive: 'business' },
+      { key: 'AdminChapters', label: 'Chapters', icon: 'business-outline', iconActive: 'business' },
       { key: 'AdminEvents', label: 'Events', icon: 'calendar-outline', iconActive: 'calendar' },
       { key: 'AdminEventAttendanceList', label: 'Event Attendance', icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle' },
       { key: 'AdminReferrals', label: 'Referrals', icon: 'git-network-outline', iconActive: 'git-network' },

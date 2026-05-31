@@ -41,7 +41,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   };
 
   const handleRegister = () => {
-    navigation.navigate('Login', { mode: 'register' });
+    navigation.navigate('PhoneLogin', { mode: 'register' });
   };
 
   return (

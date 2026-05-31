@@ -19,6 +19,7 @@ import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { uploadProfilePhoto } from '../../services/firebase/storage';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 import type { ProfileStackParamList, User } from '../../types';
+import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
@@ -57,6 +58,10 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const serviceInputRef = useRef<RNTextInput | null>(null);
   const dropdownMaxHeight = useDropdownMaxHeight(250);
+  const businessCategories = useMemo(
+    () => normalizeStringArray(businessConfig.businessCategories),
+    [businessConfig.businessCategories],
+  );
 
   useEffect(() => {
     if (!authUser) {
@@ -94,20 +99,20 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   }, [authUser?.photoURL]);
 
   const filteredCategories = useMemo(() => {
-    const q = categorySearch.toLowerCase().trim();
-    if (!q) return businessConfig.businessCategories;
-    return businessConfig.businessCategories.filter((cat) => cat.toLowerCase().includes(q));
-  }, [businessConfig.businessCategories, categorySearch]);
+    const q = normalizeTextLower(categorySearch);
+    if (!q) return businessCategories;
+    return businessCategories.filter((cat) => normalizeTextLower(cat).includes(q));
+  }, [businessCategories, categorySearch]);
   const normalizedCategorySearch = normalizeTag(categorySearch);
   const canCreateCategory = !!normalizedCategorySearch
-    && !businessConfig.businessCategories.some((cat) => cat.toLowerCase() === normalizedCategorySearch.toLowerCase());
+    && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
 
   const showCategoryDropdown = categoryDropdownOpen && !businessCategory;
 
   const availableServices = useMemo(() => {
     if (!businessCategory) return [];
-    const base = businessConfig.servicesByCategory[businessCategory] ?? [];
-    const custom = customServicesByCategory[businessCategory] ?? [];
+    const base = normalizeStringArray(businessConfig.servicesByCategory[businessCategory]);
+    const custom = normalizeStringArray(customServicesByCategory[businessCategory]);
     const unique: string[] = [];
     [...base, ...custom].forEach((service) => {
       const clean = normalizeTag(service);
@@ -117,10 +122,10 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   }, [businessCategory, businessConfig.servicesByCategory, customServicesByCategory]);
 
   const filteredServices = useMemo(() => {
-    const q = serviceSearch.toLowerCase().trim();
+    const q = normalizeTextLower(serviceSearch);
     return availableServices
       .filter((service) => !hasTag(selectedServices, service))
-      .filter((service) => !q || service.toLowerCase().includes(q));
+      .filter((service) => !q || normalizeTextLower(service).includes(q));
   }, [availableServices, selectedServices, serviceSearch]);
 
   const normalizedServiceSearch = normalizeTag(serviceSearch);

@@ -45,7 +45,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   useEffect(() => {
     if (!isRegisterMode) {
       navigation.replace('PhoneLogin');
+      return;
     }
+    navigation.replace('PhoneLogin', { mode: 'register' });
   }, [isRegisterMode, navigation]);
 
   const validateEmail = useCallback((value: string): boolean => {

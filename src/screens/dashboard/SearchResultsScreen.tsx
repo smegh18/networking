@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, layout } from '../../theme';
 import type { DashboardStackParamList, User } from '../../types';
+import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<DashboardStackParamList, 'SearchResults'>;
 
@@ -20,7 +21,7 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { items: users } = useRealtimeCollection<User>('users', 'uid');
 
   const sections = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = normalizeTextLower(query);
     if (!q) return [];
 
     const businessMatches: User[] = [];
@@ -29,21 +30,27 @@ const SearchResultsScreen: React.FC<Props> = ({ navigation, route }) => {
     const seen = new Set<string>();
 
     users.forEach((user) => {
-      if (user.businessName.toLowerCase().includes(q) || user.name.toLowerCase().includes(q)) {
+      if (
+        normalizeTextLower(user.businessName).includes(q)
+        || normalizeTextLower(user.name).includes(q)
+      ) {
         businessMatches.push(user);
         seen.add(user.uid);
       }
     });
 
     users.forEach((user) => {
-      if (!seen.has(user.uid) && (user.businessTags || []).some((tag) => tag.toLowerCase().includes(q))) {
+      if (
+        !seen.has(user.uid)
+        && normalizeStringArray(user.businessTags).some((tag) => normalizeTextLower(tag).includes(q))
+      ) {
         tagMatches.push(user);
         seen.add(user.uid);
       }
     });
 
     users.forEach((user) => {
-      if (!seen.has(user.uid) && user.businessCategory.toLowerCase().includes(q)) {
+      if (!seen.has(user.uid) && normalizeTextLower(user.businessCategory).includes(q)) {
         categoryMatches.push(user);
       }
     });

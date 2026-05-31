@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, borderRadius, spacing } from '../../theme';
-import { SocialLinks as SocialLinksType } from '../../types';
-import { openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
+import { Location, SocialLinks as SocialLinksType } from '../../types';
+import { formatBusinessMapAddress, openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
 
 interface SocialLinksProps {
   links: SocialLinksType;
   businessAddress?: string;
+  businessArea?: string;
+  location?: Partial<Location>;
 }
 
 const SOCIAL_CONFIG = [
@@ -18,14 +20,15 @@ const SOCIAL_CONFIG = [
   { key: 'google' as const, label: 'Google', icon: 'logo-google', color: '#4285F4', getUrl: openGoogle },
 ];
 
-export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress }) => {
+export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress, businessArea, location }) => {
   const handlePress = (url: string) => {
     Linking.openURL(url).catch(() => {});
   };
 
   const activeLinks = SOCIAL_CONFIG.filter((s) => links[s.key]);
+  const mapAddress = formatBusinessMapAddress(businessAddress, businessArea, location);
 
-  if (activeLinks.length === 0 && !businessAddress) return null;
+  if (activeLinks.length === 0 && !mapAddress) return null;
 
   return (
     <View style={styles.container}>
@@ -40,10 +43,10 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress
           <Text style={[styles.label, { color: social.color }]}>{social.label}</Text>
         </TouchableOpacity>
       ))}
-      {businessAddress ? (
+      {mapAddress ? (
         <TouchableOpacity
           style={[styles.button, { backgroundColor: '#34A85312' }]}
-          onPress={() => handlePress(openGoogleMaps(businessAddress))}
+          onPress={() => handlePress(openGoogleMaps(mapAddress))}
           activeOpacity={0.7}
         >
           <Ionicons name="location" size={22} color="#34A853" />

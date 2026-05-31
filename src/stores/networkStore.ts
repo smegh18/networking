@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { User, Chapter, Zone } from '../types';
+import type { User, Chapter } from '../types';
+import { normalizeStringArray, normalizeTextLower } from '../utils/helpers';
 
 interface NetworkFilters {
   selectedChapter: string | null;
@@ -11,7 +12,6 @@ interface NetworkState {
   users: User[];
   filteredUsers: User[];
   chapters: Chapter[];
-  zones: Zone[];
   selectedChapter: string | null;
   selectedLocation: string | null;
   selectedTags: string[];
@@ -23,7 +23,6 @@ interface NetworkActions {
   setUsers: (users: User[]) => void;
   setFilteredUsers: (filteredUsers: User[]) => void;
   setChapters: (chapters: Chapter[]) => void;
-  setZones: (zones: Zone[]) => void;
   setFilters: (filters: Partial<NetworkFilters>) => void;
   clearFilters: () => void;
   setSearchQuery: (searchQuery: string) => void;
@@ -43,7 +42,6 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   users: [],
   filteredUsers: [],
   chapters: [],
-  zones: [],
   ...initialFilters,
   searchQuery: '',
   isLoading: false,
@@ -53,8 +51,6 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   setFilteredUsers: (filteredUsers) => set({ filteredUsers }),
 
   setChapters: (chapters) => set({ chapters }),
-
-  setZones: (zones) => set({ zones }),
 
   setFilters: (filters) =>
     set((state) => ({
@@ -83,32 +79,33 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
     // Filter by location (city or state)
     if (selectedLocation) {
-      const locationLower = selectedLocation.toLowerCase();
+      const locationLower = normalizeTextLower(selectedLocation);
       filtered = filtered.filter(
         (user) =>
-          user.location.city.toLowerCase().includes(locationLower) ||
-          user.location.state.toLowerCase().includes(locationLower),
+          normalizeTextLower(user.location?.city).includes(locationLower) ||
+          normalizeTextLower(user.location?.state).includes(locationLower),
       );
     }
 
     // Filter by tags (match any of the selected tags)
     if (selectedTags.length > 0) {
+      const normalizedSelectedTags = selectedTags.map((tag) => normalizeTextLower(tag));
       filtered = filtered.filter((user) =>
-        user.businessTags.some((tag) =>
-          selectedTags.map((t) => t.toLowerCase()).includes(tag.toLowerCase()),
+        normalizeStringArray(user.businessTags).some((tag) =>
+          normalizedSelectedTags.includes(normalizeTextLower(tag)),
         ),
       );
     }
 
     // Filter by search query (name, business name, or category)
     if (searchQuery.trim()) {
-      const queryLower = searchQuery.toLowerCase().trim();
+      const queryLower = normalizeTextLower(searchQuery);
       filtered = filtered.filter(
         (user) =>
-          user.name.toLowerCase().includes(queryLower) ||
-          user.businessName.toLowerCase().includes(queryLower) ||
-          user.businessCategory.toLowerCase().includes(queryLower) ||
-          user.businessTags.some((tag) => tag.toLowerCase().includes(queryLower)),
+          normalizeTextLower(user.name).includes(queryLower) ||
+          normalizeTextLower(user.businessName).includes(queryLower) ||
+          normalizeTextLower(user.businessCategory).includes(queryLower) ||
+          normalizeStringArray(user.businessTags).some((tag) => normalizeTextLower(tag).includes(queryLower)),
       );
     }
 

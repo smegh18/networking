@@ -151,7 +151,6 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
             linkedin: "",
           },
           chapterId: "",
-          zoneId: "",
           location: { city, state },
           dateOfBirth: "",
           language: "en",

@@ -23,6 +23,7 @@ import { createCollectionItem } from '../../services/firebase/realtimeDb';
 import { useAuthStore } from '../../stores/authStore';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 import type { Ask, Chapter, User } from '../../types';
+import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
 
 interface AskBoardProps {
   onGiveReferral?: (ask: Ask) => void;
@@ -62,12 +63,13 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
   const dropdownMaxHeight = useDropdownMaxHeight(250);
 
   // Defensive copies so we never rely on possibly undefined config arrays
-  const businessCategories = Array.isArray(businessConfig.businessCategories)
-    ? businessConfig.businessCategories
-    : [];
+  const businessCategories = useMemo(
+    () => normalizeStringArray(businessConfig.businessCategories),
+    [businessConfig.businessCategories],
+  );
 
   const categoryOptions = useMemo(() => {
-    const fromAsks = asks.map((ask) => ask.category).filter(Boolean);
+    const fromAsks = asks.map((ask) => normalizeText(ask.category)).filter(Boolean);
     const merged = Array.from(new Set([...businessCategories, ...fromAsks])).sort();
     return merged.map((cat) => ({ value: cat, label: cat }));
   }, [asks, businessCategories]);
@@ -80,12 +82,14 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
   const subcategoryOptions = useMemo(() => {
     if (!selectedCategory) return [];
     const raw = (tagsByCategory as Record<string, unknown>)[selectedCategory];
-    const tags = Array.isArray(raw) ? (raw as string[]) : [];
-    return Array.from(new Set(tags.map((t) => String(t || '').trim()).filter(Boolean))).sort();
+    return Array.from(new Set(normalizeStringArray(raw))).sort();
   }, [selectedCategory, tagsByCategory]);
 
   const chapterOptions = useMemo(
-    () => chapters.map((ch) => ({ value: ch.id, label: ch.name })),
+    () =>
+      chapters
+        .map((ch) => ({ value: ch.id, label: normalizeText(ch.name) }))
+        .filter((ch) => !!ch.value && !!ch.label),
     [chapters],
   );
 
@@ -98,34 +102,34 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
   }, [users]);
 
   const filteredCategoryOptions = useMemo(() => {
-    const q = categorySearch.toLowerCase().trim();
+    const q = normalizeTextLower(categorySearch);
     if (!q) return categoryOptions;
-    return categoryOptions.filter((opt) => opt.label.toLowerCase().includes(q));
+    return categoryOptions.filter((opt) => normalizeTextLower(opt.label).includes(q));
   }, [categoryOptions, categorySearch]);
 
   const filteredChapterOptions = useMemo(() => {
-    const q = chapterSearch.toLowerCase().trim();
+    const q = normalizeTextLower(chapterSearch);
     if (!q) return chapterOptions;
-    return chapterOptions.filter((opt) => opt.label.toLowerCase().includes(q));
+    return chapterOptions.filter((opt) => normalizeTextLower(opt.label).includes(q));
   }, [chapterOptions, chapterSearch]);
 
   const filteredSubcategoryOptions = useMemo(() => {
-    const q = subcategorySearch.toLowerCase().trim();
+    const q = normalizeTextLower(subcategorySearch);
     if (!q) return subcategoryOptions;
-    return subcategoryOptions.filter((tag) => tag.toLowerCase().includes(q));
+    return subcategoryOptions.filter((tag) => normalizeTextLower(tag).includes(q));
   }, [subcategoryOptions, subcategorySearch]);
 
   const filteredAsks = useMemo(() => {
     let items = asks;
-    const q = searchQuery.toLowerCase().trim();
+    const q = normalizeTextLower(searchQuery);
 
     if (q) {
       items = items.filter(
         (a) =>
-          a.service.toLowerCase().includes(q) ||
-          a.category.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q) ||
-          a.askerName.toLowerCase().includes(q),
+          normalizeTextLower(a.service).includes(q) ||
+          normalizeTextLower(a.category).includes(q) ||
+          normalizeTextLower(a.description).includes(q) ||
+          normalizeTextLower(a.askerName).includes(q),
       );
     }
 
@@ -134,8 +138,8 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     }
 
     if (selectedSubcategory) {
-      const wanted = selectedSubcategory.trim().toLowerCase();
-      items = items.filter((a) => String(a.service || '').trim().toLowerCase() === wanted);
+      const wanted = normalizeTextLower(selectedSubcategory);
+      items = items.filter((a) => normalizeTextLower(a.service) === wanted);
     }
 
     if (selectedChapter) {
@@ -153,9 +157,9 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
   }, [selectedCategory]);
 
   const filteredCategories = useMemo(() => {
-    const q = askCategorySearch.toLowerCase().trim();
+    const q = normalizeTextLower(askCategorySearch);
     if (!q) return businessCategories;
-    return businessCategories.filter((cat) => cat.toLowerCase().includes(q));
+    return businessCategories.filter((cat) => normalizeTextLower(cat).includes(q));
   }, [askCategorySearch, businessCategories]);
 
   const showCategoryDropdown = askCategoryDropdownOpen && askCategorySearch.trim().length > 0 && !askCategory;
@@ -555,10 +559,8 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                     </View>
                     {askSubcategoryDropdownOpen && (tagsByCategory as Record<string, string[]>)[askCategory]?.length ? (
                       <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                        {((tagsByCategory as Record<string, string[]>)[askCategory] || [])
-                          .map((tag) => String(tag || '').trim())
-                          .filter(Boolean)
-                          .filter((tag) => !askService.trim() || tag.toLowerCase().includes(askService.trim().toLowerCase()))
+                        {normalizeStringArray((tagsByCategory as Record<string, string[]>)[askCategory])
+                          .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
                           .slice(0, 50)
                           .map((tag) => (
                             <TouchableOpacity
