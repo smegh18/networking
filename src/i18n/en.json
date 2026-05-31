@@ -1,5 +1,6 @@
 {
   "common": {
+    "appName": "Brahmin Connect",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
