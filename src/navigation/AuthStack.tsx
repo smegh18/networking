@@ -19,7 +19,6 @@ export const AuthStack: React.FC<{ initialRouteName?: keyof AuthStackParamList }
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: '#F8FAFC' },
-
       }}
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />

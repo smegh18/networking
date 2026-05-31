@@ -208,7 +208,6 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <ScreenWrapper refreshing={refreshing} onRefresh={onRefresh} padded={false} contentStyle={styles.screenContent}>
-
       <View style={[styles.heroCard, isMobile && styles.mobileCard]}>
         <View style={styles.greetingRow}>
           <View style={styles.greetingText}>
@@ -319,9 +318,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   askBoardSection: {
     paddingHorizontal: spacing.xl,

@@ -232,7 +232,7 @@ const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
   const otpFilled = otp.every((digit) => digit !== '');
 
   return (
-    <ScreenWrapper padded={false} scrollable={false}>
+    <ScreenWrapper padded={false} scrollable={false} edges={['top', 'bottom']}>
       <Header
         title={t('otp.title', 'Verify Email')}
         onBack={() => navigation.goBack()}

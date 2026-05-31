@@ -48,7 +48,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
       return;
     }
     navigation.replace('PhoneLogin', { mode: 'register' });
-
   }, [isRegisterMode, navigation]);
 
   const validateEmail = useCallback((value: string): boolean => {
@@ -100,7 +99,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   if (!isRegisterMode) return null;
 
   return (
-    <ScreenWrapper padded={false}>
+    <ScreenWrapper padded={false} edges={['top', 'bottom']}>
       <Header title={t('register.verifyEmailTitle', 'Create account')} onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView

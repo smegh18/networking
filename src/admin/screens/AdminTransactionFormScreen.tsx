@@ -1,10 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  useWindowDimensions,
+} from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
+
 import { AdminLayout } from '../components/layout/AdminLayout';
-import { AdminFormField, AdminDropdownField } from '../components/ui/AdminFormField';
+import {
+  AdminFormField,
+  AdminDropdownField,
+} from '../components/ui/AdminFormField';
+import { ADMIN_LAYOUT } from '../constants/layout';
+
 import { colors, typography, spacing, borderRadius } from '../../theme';
-import { getBusinessAdmin, updateBusinessAdmin } from '../services/adminFirestore';
+import {
+  getBusinessAdmin,
+  updateBusinessAdmin,
+} from '../services/adminFirestore';
+
 import type { AdminStackParamList } from '../types/admin';
 import type { Business } from '../../types';
 
@@ -13,47 +30,44 @@ type Props = StackScreenProps<AdminStackParamList, 'AdminTransactionForm'>;
 const AdminTransactionFormScreen: React.FC<Props> = ({ navigation, route }) => {
   const { width } = useWindowDimensions();
   const isCompact = width < 960;
-  const { transactionId } = route.params;
+  const transactionId = route.params?.transactionId;
 
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState<Business['status']>('pending');
   const [date, setDate] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [transaction, setTransaction] = useState<Business | null>(null);
 
   useEffect(() => {
-    loadTransaction();
+    if (transactionId) loadTransaction(transactionId);
   }, [transactionId]);
 
-  const loadTransaction = async () => {
+  const loadTransaction = async (id: string) => {
     try {
-      setLoading(true);
-      const data = await getBusinessAdmin(transactionId);
+      const data = await getBusinessAdmin(id);
       if (data) {
+        setTransaction(data);
         setAmount(String(data.amount));
         setStatus(data.status || 'pending');
-        setDate(data.date);
-        setCity(data.city || '');
-        setState(data.state || '');
+        setDate(data.date || '');
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to load transaction data.');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const statusOptions = [
-    { key: 'pending', label: 'Pending' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'rejected', label: 'Rejected' },
-  ];
+  const statusOptions = useMemo(
+    () => [
+      { key: 'pending', label: 'Pending' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+    ],
+    []
+  );
 
   const handleSave = async () => {
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount)) {
+    const amountVal = parseFloat(amount);
+    if (isNaN(amountVal)) {
       Alert.alert('Error', 'Please enter a valid amount.');
       return;
     }
@@ -61,42 +75,41 @@ const AdminTransactionFormScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       setSaving(true);
       await updateBusinessAdmin(transactionId, {
-        amount: numAmount,
+        amount: amountVal,
         status,
         date,
-        city,
-        state,
       });
       navigation.goBack();
-    } catch (err) {
-      Alert.alert('Error', 'Failed to update transaction.');
+    } catch {
+      Alert.alert('Error', 'Failed to save transaction.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout title="Edit Transaction" activeScreen="AdminTransaction" showBackButton onBack={() => navigation.goBack()}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout
       title="Edit Transaction"
-      activeScreen="AdminTransaction"
+      activeScreen="AdminTransactions"
       showBackButton
       onBack={() => navigation.goBack()}
     >
       <View style={styles.formCard}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Transaction Details</Text>
-          <Text style={styles.headerSubtitle}>ID: {transactionId}</Text>
+        <View style={styles.infoSection}>
+          <Text style={styles.infoLabel}>From:</Text>
+          <Text style={styles.infoValue}>{transaction?.givenByName}</Text>
+          
+          <Text style={styles.infoLabel}>To:</Text>
+          <Text style={styles.infoValue}>{transaction?.givenToName}</Text>
+          
+          <Text style={styles.infoLabel}>Chapter:</Text>
+          <Text style={styles.infoValue}>{transaction?.chapterName}</Text>
+          
+          <Text style={styles.infoLabel}>Type:</Text>
+          <Text style={styles.infoValue}>{transaction?.type}</Text>
         </View>
+
+        <View style={styles.divider} />
 
         <View style={[styles.row, isCompact && styles.rowCompact]}>
           <View style={styles.fieldColumn}>
@@ -112,36 +125,18 @@ const AdminTransactionFormScreen: React.FC<Props> = ({ navigation, route }) => {
               label="Status"
               value={status || 'pending'}
               options={statusOptions}
-              onSelect={(key) => setStatus(key as Business['status'])}
+              onSelect={(val) => setStatus(val as Business['status'])}
             />
           </View>
         </View>
 
-        <View style={[styles.row, isCompact && styles.rowCompact]}>
+        <View style={styles.row}>
           <View style={styles.fieldColumn}>
             <AdminFormField
               label="Date (YYYY-MM-DD)"
               value={date}
               onChangeText={setDate}
-              placeholder="2026-03-30"
-            />
-          </View>
-          <View style={styles.fieldColumn} />
-        </View>
-
-        <View style={[styles.row, isCompact && styles.rowCompact]}>
-          <View style={styles.fieldColumn}>
-            <AdminFormField
-              label="City"
-              value={city}
-              onChangeText={setCity}
-            />
-          </View>
-          <View style={styles.fieldColumn}>
-            <AdminFormField
-              label="State"
-              value={state}
-              onChangeText={setState}
+              placeholder="2024-01-01"
             />
           </View>
         </View>
@@ -164,14 +159,6 @@ const AdminTransactionFormScreen: React.FC<Props> = ({ navigation, route }) => {
 export default AdminTransactionFormScreen;
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    padding: spacing['4xl'],
-    alignItems: 'center',
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
   formCard: {
     width: '100%',
     maxWidth: 960,
@@ -182,21 +169,27 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     padding: spacing.xl,
   },
-  header: {
-    marginBottom: spacing.xl,
+  infoSection: {
+    marginBottom: spacing.lg,
   },
-  headerTitle: {
-    ...typography.h4,
-    color: colors.text,
-  },
-  headerSubtitle: {
+  infoLabel: {
     ...typography.caption,
     color: colors.textTertiary,
-    marginTop: 4,
+    marginTop: spacing.xs,
+  },
+  infoValue: {
+    ...typography.bodyMedium,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.lg,
   },
   row: {
     flexDirection: 'row',
-    gap: spacing.lg,
+    gap: ADMIN_LAYOUT.elementGap,
     marginBottom: spacing.sm,
   },
   rowCompact: {
@@ -205,18 +198,16 @@ const styles = StyleSheet.create({
   },
   fieldColumn: {
     flex: 1,
-    minWidth: 0,
   },
   saveButton: {
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: borderRadius.md,
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
   },
   saveText: {
     ...typography.bodyMedium,
     color: colors.textInverse,
-    fontWeight: '600',
   },
 });

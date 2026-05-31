@@ -20,13 +20,13 @@ import AdminTransactionScreen from '../screens/AdminTransactionScreen';
 import AdminTransactionFormScreen from '../screens/AdminTransactionFormScreen';
 import AdminUserDetailsScreen from '../screens/AdminUserDetailsScreen';
 
-
 const Stack = createStackNavigator<AdminStackParamList>();
 
 export const AdminNavigator: React.FC = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
     <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+    <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
     <Stack.Screen name="AdminRoles" component={AdminRolesScreen} />
     <Stack.Screen name="AdminUserForm" component={AdminUserFormScreen} />
     <Stack.Screen name="AdminChapters" component={AdminChaptersScreen} />
@@ -35,14 +35,12 @@ export const AdminNavigator: React.FC = () => (
     <Stack.Screen name="AdminEventForm" component={AdminEventFormScreen} />
     <Stack.Screen name="AdminEventAttendance" component={AdminEventAttendanceScreen} />
     <Stack.Screen name="AdminReferrals" component={AdminReferralsScreen} />
+    <Stack.Screen name="AdminTransactions" component={AdminTransactionScreen} />
+    <Stack.Screen name="AdminTransactionForm" component={AdminTransactionFormScreen} />
     <Stack.Screen name="AdminAds" component={AdminAdsScreen} />
     <Stack.Screen name="AdminAdForm" component={AdminAdFormScreen} />
     <Stack.Screen name="AdminAsks" component={AdminAsksScreen} />
     <Stack.Screen name="AdminBusinessConfig" component={AdminBusinessConfigScreen} />
-    <Stack.Screen name="AdminTransaction" component={AdminTransactionScreen} />
-    <Stack.Screen name="AdminTransactionForm" component={AdminTransactionFormScreen} />
-    <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
-
     <Stack.Screen name="AdminNotifications" component={AdminNotificationsScreen} />
   </Stack.Navigator>
 );

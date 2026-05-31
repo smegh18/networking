@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
-
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, ref, set } from 'firebase/database';
 import { rtdb } from '../../../firebase.config';
+import { checkIdentifiersAvailability, getCurrentUser, sendOTPEmail, verifyEmailOtpAndAttach } from '../../services/firebase/auth';
 import { setPendingRegistration } from '../../services/onboarding/pendingRegistration';
 import { TextInput } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
@@ -31,14 +31,6 @@ import { borderRadius, colors, spacing, typography } from '../../theme';
 import type { AuthStackParamList, User } from '../../types';
 import { AddressPrediction, fetchAddressDetails, fetchAddressPredictions } from '../../services/googlePlaces';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
-import { sendPhoneOtpForLinking, verifyPhoneOtpAndLink, getRecaptchaContainerId, resetWebRecaptchaVerifier } from '../../services/firebase/phoneAuth';
-import {
-  getCurrentUser,
-  checkIdentifiersAvailability,
-  sendOTPEmail,
-  verifyEmailOtpAndAttach,
-} from '../../services/firebase/auth';
-
 
 type RegisterNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
 type RegisterRouteProp = RouteProp<AuthStackParamList, 'Register'>;
@@ -77,10 +69,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COMPANY_TYPE_OPTIONS = ['Private', 'Proprietorship', 'LLP', 'Private Limited', 'NA'] as const;
 
 const PENDING_PHONE_OTP_KEY = 'netconnect_pending_phone_otp_link';
-const PENDING_PHONE_OTP_MAX_AGE_MS = 15 * 60 * 1000;
-const PHONE_OTP_RESEND_COOLDOWN_SECONDS = 60;
-const PHONE_OTP_SEND_TIMEOUT_MS = 25_000;
-
 
 const normalizeEmail = (value: string): string => value.trim().toLowerCase();
 const normalizeTag = (value: string): string => value.trim().replace(/\s+/g, ' ');
@@ -103,9 +91,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const { config: businessConfig } = useBusinessConfig();
   const initialEmail = normalizeEmail(route.params?.email ?? getCurrentUser()?.email ?? '');
   const initialPhone = (route.params?.phone ?? getCurrentUser()?.phoneNumber ?? '').replace(/\D/g, '').slice(-10);
-  const verifiedEmail = normalizeEmail(route.params?.email ?? getCurrentUser()?.email ?? '');
-  const isPhoneOnlyFlow = !verifiedEmail;
-
 
   const [currentStep, setCurrentStep] = useState(0);
   const [firstName, setFirstName] = useState('');
@@ -124,15 +109,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
   const [phone, setPhone] = useState(initialPhone);
-  const [isPhoneOtpSent, setIsPhoneOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(!!initialPhone);
-  const [phoneOtpInput, setPhoneOtpInput] = useState('');
-  const [phoneOtpError, setPhoneOtpError] = useState('');
-  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
-  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false);
-  const [phoneOtpSentAtMs, setPhoneOtpSentAtMs] = useState(0);
-  const [phoneResendSeconds, setPhoneResendSeconds] = useState(0);
-  const [canResendPhoneOtp, setCanResendPhoneOtp] = useState(true);
   const [isWhatsAppSame, setIsWhatsAppSame] = useState(true);
   const [whatsAppNumber, setWhatsAppNumber] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -147,32 +124,19 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
   const [isFetchingAddressPredictions, setIsFetchingAddressPredictions] = useState(false);
   const [isSelectingAddress, setIsSelectingAddress] = useState(false);
-
   const [googleBusinessProfile, setGoogleBusinessProfile] = useState('');
   const [linkedIn, setLinkedIn] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollContentRef = useRef<View | null>(null);
   const categorySectionRef = useRef<View | null>(null);
-  const phoneConfirmationRef = useRef<{ verificationId: string } | null>(null);
-  const phoneResendIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const dropdownMaxHeight = useDropdownMaxHeight(180);
   const keyboardHeight = useKeyboardHeight();
   const businessCategories = useMemo(
     () => normalizeStringArray(businessConfig.businessCategories),
     [businessConfig.businessCategories],
   );
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    resetWebRecaptchaVerifier();
-    return () => {
-      resetWebRecaptchaVerifier();
-    };
-  }, []);
-
 
   useEffect(() => {
     const uid = getCurrentUser()?.uid;
@@ -191,7 +155,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     setPhone(nextPhone);
     setIsPhoneVerified(true);
   }, [initialPhone]);
-
 
   useEffect(() => {
     if (!categoryDropdownOpen || currentStep !== 1) return;
@@ -258,7 +221,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const normalizedCategorySearch = normalizeTag(categorySearch);
   const canCreateCategory = !!normalizedCategorySearch
     && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
-
 
   const clearError = (field: keyof FormErrors) => {
     if (!errors[field]) return;
@@ -348,168 +310,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     }
   };
 
-  const resetPhoneVerification = () => {
-    setIsPhoneOtpSent(false);
-    setIsPhoneVerified(false);
-    setPhoneOtpInput('');
-    setPhoneOtpError('');
-    phoneConfirmationRef.current = null;
-    setPhoneOtpSentAtMs(0);
-    setPhoneResendSeconds(0);
-    setCanResendPhoneOtp(true);
-    if (phoneResendIntervalRef.current) {
-      clearInterval(phoneResendIntervalRef.current);
-      phoneResendIntervalRef.current = null;
-    }
-    void AsyncStorage.removeItem(PENDING_PHONE_OTP_KEY);
-  };
-
-  const handleSendPhoneOtp = async () => {
-    if (isPhoneOtpSent && !canResendPhoneOtp) return;
-
-    const normalizedPhone = phone.replace(/\D/g, '');
-    if (normalizedPhone.length !== 10) {
-      setErrors((prev) => ({
-        ...prev,
-        phone: t('register.phoneInvalid', 'Enter a valid 10-digit contact number'),
-      }));
-      return;
-    }
-
-    // Clear any previous verification session before sending a new OTP.
-    setIsPhoneOtpSent(false);
-    setIsPhoneVerified(false);
-    setPhoneOtpInput('');
-    setPhoneOtpError('');
-    phoneConfirmationRef.current = null;
-    void AsyncStorage.removeItem(PENDING_PHONE_OTP_KEY);
-
-    setIsSendingPhoneOtp(true);
-    setPhoneOtpError('');
-    clearError('phone');
-    phoneConfirmationRef.current = null;
-    try {
-      const e164 = `+91${normalizedPhone}`;
-      const uid = getCurrentUser()?.uid;
-      if (uid) {
-        try {
-          const { phoneInUse } = await checkIdentifiersAvailability({ phone: e164, excludeUid: uid });
-          if (phoneInUse) {
-            Alert.alert(
-              t('register.phoneInUseTitle', 'Number already in use'),
-              t('register.phoneInUseMessage', 'This mobile number is already registered. Please login instead.'),
-            );
-            return;
-          }
-        } catch {
-          // If checks fail (e.g. offline), continue and let linking fail with a clear error message.
-        }
-      }
-      const verifier = Platform.OS === 'web' ? undefined : undefined;
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const confirmationResult = await Promise.race([
-        sendPhoneOtpForLinking(e164, verifier),
-        new Promise<null>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error('OTP request timed out. Please try again.')), PHONE_OTP_SEND_TIMEOUT_MS);
-        }),
-      ]).finally(() => {
-        if (timeoutId) clearTimeout(timeoutId);
-      });
-      if (confirmationResult && 'verificationId' in confirmationResult) {
-        phoneConfirmationRef.current = { verificationId: confirmationResult.verificationId };
-        setIsPhoneOtpSent(true);
-        setIsPhoneVerified(false);
-        setPhoneOtpInput('');
-        setPhoneOtpSentAtMs(Date.now());
-        void AsyncStorage.setItem(
-          PENDING_PHONE_OTP_KEY,
-          JSON.stringify({ phone10: normalizedPhone, verificationId: confirmationResult.verificationId, createdAt: Date.now() }),
-        );
-        Alert.alert(
-          t('register.otpSentTitle', 'OTP Sent'),
-          t('register.otpSentToPhone', 'A verification code has been sent to {{phone}}', {
-            phone: normalizedPhone,
-          }),
-        );
-      } else {
-        Alert.alert(
-          t('common.error', 'Error'),
-          t('register.phoneOtpFailed', 'Could not send SMS. Please try again.'),
-        );
-      }
-    } catch (err: unknown) {
-      const message = err && typeof (err as { message?: string }).message === 'string' ? (err as { message: string }).message : '';
-      Alert.alert(
-        t('common.error', 'Error'),
-        t('register.phoneOtpFailed', 'Could not send SMS. Please check the number and try again.') + (message ? ` ${message}` : ''),
-      );
-    } finally {
-      setIsSendingPhoneOtp(false);
-    }
-  };
-
-  const handleVerifyPhoneOtp = async () => {
-    const normalizedOtp = phoneOtpInput.replace(/\D/g, '');
-    const verificationId = phoneConfirmationRef.current?.verificationId;
-    if (!verificationId) {
-      setPhoneOtpError(t('register.errorVerifyOtp', 'Please send the code first.'));
-      return;
-    }
-    if (normalizedOtp.length !== 6) {
-      setPhoneOtpError(t('register.errorVerifyOtp6', 'Enter the 6-digit code from SMS.'));
-      return;
-    }
-
-    setIsVerifyingPhoneOtp(true);
-    setPhoneOtpError('');
-    try {
-      await verifyPhoneOtpAndLink(verificationId, normalizedOtp);
-      setIsPhoneVerified(true);
-      phoneConfirmationRef.current = null;
-      void AsyncStorage.removeItem(PENDING_PHONE_OTP_KEY);
-      clearError('phone');
-      Alert.alert(
-        t('register.verified', 'Verified'),
-        t('register.businessNumber', 'Business Number'),
-      );
-    } catch (err: unknown) {
-      const code = getAuthErrorCode(err);
-      const message =
-        err && typeof (err as { message?: unknown }).message === 'string'
-          ? (err as { message: string }).message
-          : '';
-
-      // Safe fallback in case Firebase reports the user already has a phone provider.
-      if (code === 'auth/provider-already-linked' || message.toLowerCase().includes('already been linked')) {
-        setIsPhoneVerified(true);
-        phoneConfirmationRef.current = null;
-        void AsyncStorage.removeItem(PENDING_PHONE_OTP_KEY);
-        clearError('phone');
-        return;
-      }
-      if (
-        code === 'auth/credential-already-in-use'
-        || code === 'auth/phone-number-already-exists'
-        || code === 'auth/account-exists-with-different-credential'
-      ) {
-        setPhoneOtpError(t('register.phoneInUseMessage', 'This mobile number is already registered. Please login instead.'));
-        return;
-      }
-      if (
-        code === 'auth/invalid-verification-code'
-        || code === 'auth/invalid-verification-id'
-        || code === 'auth/session-expired'
-      ) {
-        setPhoneOtpError(t('otp.errorVerification', 'Invalid or expired code. Please try again or resend.'));
-        return;
-      }
-      setPhoneOtpError(t('register.errorVerifyOtp', 'Invalid code. Please try again.'));
-    } finally {
-      setIsVerifyingPhoneOtp(false);
-
-    }
-  };
-
   const handleSelectCompanyType = (value: string) => {
     setCompanyType(value);
     setCompanyTypeDropdownOpen(false);
@@ -535,25 +335,30 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   };
 
   const handleSelectAddressPrediction = async (prediction: AddressPrediction) => {
-    setIsAddressDropdownOpen(false);
     setIsSelectingAddress(true);
+    setIsAddressDropdownOpen(false);
     try {
       const details = await fetchAddressDetails(prediction.placeId);
       setBusinessAddress(details.formattedAddress || prediction.description);
-      setBusinessArea(details.area || '');
-      setBusinessCity(details.city || '');
-      setBusinessState(details.state || '');
-      setBusinessPinCode(details.pinCode || '');
+      setBusinessArea(details.area);
+      setBusinessCity(details.city);
+      setBusinessState(details.state);
+      setBusinessPinCode(details.pinCode);
+      setBusinessPlaceId(details.placeId);
+      setBusinessLatitude(details.latitude);
+      setBusinessLongitude(details.longitude);
+      setAddressPredictions([]);
+      setErrors((prev) => ({
+        ...prev,
+        businessAddress: undefined,
+        city: undefined,
+        state: undefined,
+        pinCode: undefined,
+      }));
+    } catch {
+      setBusinessAddress(prediction.description);
       setBusinessPlaceId(prediction.placeId);
-      if (details.latitude) setBusinessLatitude(details.latitude);
-      if (details.longitude) setBusinessLongitude(details.longitude);
-
-      clearError('businessAddress');
-      clearError('city');
-      clearError('state');
-      clearError('pinCode');
-    } catch (err) {
-      console.error('Failed to fetch address details:', err);
+      setAddressPredictions([]);
     } finally {
       setIsSelectingAddress(false);
     }
@@ -584,6 +389,15 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         nextErrors.phone = t('register.phoneNotVerified', 'Please verify your business number');
       }
 
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail) {
+        nextErrors.email = t('login.errorRequired', 'Email address is required');
+      } else if (!EMAIL_REGEX.test(normalizedEmail)) {
+        nextErrors.email = t('login.errorInvalid', 'Please enter a valid email address');
+      } else if (!isEmailVerified) {
+        nextErrors.email = t('register.emailNotVerified', 'Please verify your business email');
+      }
+
       if (!isWhatsAppSame) {
         if (!normalizedWhatsApp) {
           nextErrors.whatsAppNumber = t('register.whatsappRequired', 'WhatsApp number is required');
@@ -596,6 +410,17 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     if (stepIndex === 3) {
       if (!businessAddress.trim()) {
         nextErrors.businessAddress = t('register.addressRequired', 'Business address is required');
+      }
+      if (!businessCity.trim()) {
+        nextErrors.city = t('register.cityRequired', 'City is required');
+      }
+      if (!businessState.trim()) {
+        nextErrors.state = t('register.stateRequired', 'State is required');
+      }
+      if (!businessPinCode.trim()) {
+        nextErrors.pinCode = t('register.pinCodeRequired', 'PIN code is required');
+      } else if (!/^\d{6}$/.test(businessPinCode.trim())) {
+        nextErrors.pinCode = t('register.pinCodeInvalid', 'Enter a valid 6-digit PIN code');
       }
     }
 
@@ -645,27 +470,27 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         );
         return;
       }
+      {
+        const usersRef = ref(rtdb, 'users');
+        const usersSnap = await get(usersRef);
+        const existingByEmail = usersSnap.exists()
+          ? Object.entries(usersSnap.val() as Record<string, Record<string, unknown>>).find(([, user]) =>
+              userMatchesEmail(user, finalEmail),
+            )?.[0]
+          : undefined;
 
-      const usersRef = ref(rtdb, 'users');
-      const usersSnap = await get(usersRef);
-      const existingByEmail = usersSnap.exists()
-        ? Object.entries(usersSnap.val() as Record<string, Record<string, unknown>>).find(([, user]) =>
-            userMatchesEmail(user, finalEmail)
-          )?.[0]
-        : undefined;
-
-      if (existingByEmail && existingByEmail !== uid) {
-        await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
-        setNewUser(false);
-        navigation.reset({ index: 0, routes: [{ name: 'BiometricSetup' }] });
-        return;
+        if (existingByEmail && existingByEmail !== uid) {
+          await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
+          setNewUser(false);
+          navigation.reset({ index: 0, routes: [{ name: 'BiometricSetup' }] });
+          return;
+        }
       }
 
       const now = new Date().toISOString();
       const fullName = `${firstName.trim()} ${lastName.trim()}`.replace(/\s+/g, ' ').trim();
       const normalizedPhone = phone.replace(/\D/g, '');
       const normalizedPinCode = businessPinCode.trim();
-
       const normalizedWhatsApp = isWhatsAppSame
         ? normalizedPhone
         : whatsAppNumber.replace(/\D/g, '');
@@ -681,7 +506,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           );
           return;
         }
-        if (emailInUse && !isPhoneOnlyFlow) {
+        if (emailInUse) {
           Alert.alert(
             t('register.emailInUseTitle', 'Email already in use'),
             t('register.emailInUseMessage', 'This email is already registered. Please login instead.'),
@@ -709,8 +534,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         services: [],
         businessAddress: businessAddress.trim(),
         businessArea: businessArea.trim(),
-
-
         isWhatsAppSame,
         socialLinks: {
           instagram: '',
@@ -720,7 +543,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           google: googleBusinessProfile.trim(),
         },
         chapterId: '',
-        zoneId: '',
         location: {
           city: businessCity.trim(),
           state: businessState.trim(),
@@ -730,7 +552,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           ...(typeof businessLatitude === 'number' ? { latitude: businessLatitude } : {}),
           ...(typeof businessLongitude === 'number' ? { longitude: businessLongitude } : {}),
         },
-
         dateOfBirth: '',
         language: 'en',
         biometricEnabled: false,
@@ -931,64 +752,18 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             label={t('register.businessNumber', 'Business Number')}
             placeholder={t('register.businessNumberPlaceholder', '9876543210')}
             value={phone}
-            onChangeText={(value) => {
-              const sanitized = value.replace(/\D/g, '').slice(0, 10);
-              if (sanitized !== phone) {
-                setPhone(sanitized);
-                resetPhoneVerification();
-              }
-              clearError('phone');
-            }}
+            editable={false}
             error={errors.phone}
             icon="call-outline"
             keyboardType="phone-pad"
             maxLength={10}
           />
           <View style={styles.phoneVerifyContainer}>
-            {isPhoneVerified ? (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                <Text style={styles.verifiedBadgeText}>{t('register.verified', 'Verified')}</Text>
-              </View>
-            ) : (
-              <Button
-                title={isPhoneOtpSent ? t('register.resendOtp', 'Resend OTP') : t('register.sendOtp', 'Send OTP')}
-                onPress={handleSendPhoneOtp}
-                loading={isSendingPhoneOtp}
-                disabled={isSendingPhoneOtp || phone.length !== 10}
-                size="sm"
-              />
-            )}
-          </View>
-
-          {isPhoneOtpSent && !isPhoneVerified ? (
-            <View style={styles.phoneOtpContainer}>
-              <TextInput
-                label={t('register.enterOtp', 'Enter verification code')}
-                placeholder={t('register.otpPlaceholderSms', '6-digit code from SMS')}
-                value={phoneOtpInput}
-                onChangeText={(value) => {
-                  setPhoneOtpInput(value.replace(/\D/g, '').slice(0, 6));
-                  if (phoneOtpError) setPhoneOtpError('');
-                }}
-                icon="shield-checkmark-outline"
-                keyboardType="number-pad"
-                maxLength={6}
-                error={phoneOtpError || undefined}
-              />
-              <Button
-                title={t('register.verify', 'Verify')}
-                onPress={handleVerifyPhoneOtp}
-                loading={isVerifyingPhoneOtp}
-                disabled={isVerifyingPhoneOtp || phoneOtpInput.length !== 6}
-                size="sm"
-              />
-              <Text style={styles.phoneOtpHint}>
-                {t('register.smsCodeHint', 'Enter the 6-digit code sent to your phone via SMS.')}
-              </Text>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={styles.verifiedBadgeText}>{t('register.verified', 'Verified')}</Text>
             </View>
-          ) : null}
-
+          </View>
           <TextInput
             label={t('register.businessEmail', 'Business Email')}
             placeholder={t('login.emailPlaceholder', 'you@example.com')}
@@ -1007,7 +782,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           />
           <View style={styles.phoneVerifyContainer}>
             {isEmailVerified ? (
-
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={16} color={colors.success} />
                 <Text style={styles.verifiedBadgeText}>{t('register.verified', 'Verified')}</Text>
@@ -1018,7 +792,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
                 onPress={handleSendEmailOtp}
                 loading={isSendingEmailOtp}
                 disabled={isSendingEmailOtp || !EMAIL_REGEX.test(normalizeEmail(email))}
-
                 size="sm"
               />
             )}
@@ -1050,10 +823,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
                 {t('register.emailCodeHint', 'Enter the 6-digit code sent to your email.')}
               </Text>
             </View>
-          ) : null}
-          
-          {Platform.OS === 'web' ? (
-            <View nativeID={getRecaptchaContainerId()} style={styles.recaptchaPlaceholder} />
           ) : null}
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>

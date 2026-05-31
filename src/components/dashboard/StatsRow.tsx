@@ -32,7 +32,6 @@ export const StatsRow: React.FC<StatsRowProps> = ({ stats }) => {
   const isWeb = Platform.OS === 'web' && width > breakpoints.lg;
   const isMobile = !isWeb;
 
-
   const items = [
     { title: t('dashboard.bbcTotal'), value: formatAmountStr(stats.bbcTotal ?? 0), icon: 'briefcase-outline' as const, color: colors.statsGiven },
     { title: t('dashboard.chapterBusiness'), value: formatAmountStr(stats.chapterBusiness ?? 0), icon: 'business-outline' as const, color: colors.statsReceived },
@@ -41,56 +40,60 @@ export const StatsRow: React.FC<StatsRowProps> = ({ stats }) => {
     { title: t('dashboard.businessReceivedAmount', 'Business Received Amount'), value: formatAmountStr(stats.businessReceivedAmount ?? 0), icon: 'arrow-down-circle-outline' as const, color: colors.accent },
   ];
 
+  const renderStat = (item: (typeof items)[0], index: number, style?: object) => (
+    <StatCard
+      key={index}
+      title={item.title}
+      value={item.value}
+      icon={item.icon}
+      color={item.color}
+      compact={isMobile}
+      style={style}
+    />
+  );
+
   if (isWeb) {
     return (
       <View style={styles.webContainer}>
-        {items.map((item, index) => (
-          <StatCard
-            key={index}
-            title={item.title}
-            value={item.value}
-            icon={item.icon}
-            color={item.color}
-            style={styles.webCard}
-          />
-        ))}
+        {items.map((item, index) => renderStat(item, index, styles.webCard))}
       </View>
     );
   }
 
+  const firstRow = items.slice(0, 3);
+  const secondRow = items.slice(3, 5);
+
   return (
-    <View style={[styles.container, isMobile && styles.mobileGrid]}>
-
-      {items.map((item, index) => (
-        <StatCard
-          key={index}
-          title={item.title}
-          value={item.value}
-          icon={item.icon}
-          color={item.color}
-          style={styles.mobileCard}
-
-        />
-      ))}
+    <View style={styles.mobileContainer}>
+      <View style={styles.mobileRow}>
+        {firstRow.map((item, index) => renderStat(item, index, styles.mobileStatThree))}
+      </View>
+      <View style={styles.mobileRow}>
+        {secondRow.map((item, index) => renderStat(item, index + 3, styles.mobileStatTwo))}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mobileContainer: {
+    gap: spacing.sm,
+    backgroundColor: 'transparent',
+  },
+  mobileRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  mobileGrid: {
     justifyContent: 'space-between',
+    backgroundColor: 'transparent',
   },
-  mobileCard: {
-    flexBasis: '48%',
-    flexGrow: 1,
+  mobileStatThree: {
+    flex: 1,
     minWidth: 0,
-    maxWidth: '48%',
-
+    marginHorizontal: 3,
+  },
+  mobileStatTwo: {
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 3,
   },
   webContainer: {
     flexDirection: 'row',

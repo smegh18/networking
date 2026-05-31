@@ -213,7 +213,6 @@ export const layout = {
   maxFormWidth: 560,
   isSmallScreen: SCREEN_WIDTH < 375,
   isTablet: SCREEN_WIDTH >= 768,
-
 } as const;
 
 const theme = {

@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView, Dimensions } from 'react-native';
-
+import { View, ScrollView, StyleSheet, ViewStyle, StatusBar, Platform, RefreshControl, useWindowDimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, layout, breakpoints } from '../../theme';
 
@@ -26,11 +25,11 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
   contentStyle,
   refreshing = false,
   onRefresh,
-  edges = ['top', 'bottom'],
+  /** Bottom inset is handled by the tab bar on main app screens; use ['top', 'bottom'] on full-screen auth flows. */
+  edges = ['top'],
 }) => {
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
-
   const isWideWeb = isWeb && width > breakpoints.lg;
   const useWebLayout = isWideWeb && !uniformLayout;
 
@@ -115,11 +114,11 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
     minHeight: 0,
+    backgroundColor: colors.background,
   },
   scrollContent: {
-    flexGrow: 1,
-    paddingBottom: spacing['4xl'],
-
+    flexGrow: Platform.OS === 'web' ? 1 : undefined,
+    paddingBottom: Platform.OS === 'web' ? spacing['4xl'] : spacing['3xl'] + 88,
     maxWidth: '100%',
   },
   webScrollContent: {
@@ -128,6 +127,8 @@ const styles = StyleSheet.create({
   nonScrollOuter: {
     flex: 1,
     minHeight: 0,
+    paddingBottom: Platform.OS === 'web' ? 0 : 88,
+    backgroundColor: colors.background,
   },
   inner: {
     flex: 1,

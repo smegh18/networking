@@ -10,7 +10,7 @@ import { DashboardStack } from './DashboardStack';
 import { NetworkStack } from './NetworkStack';
 import { ProfileStack } from './ProfileStack';
 import { MoreStack } from './MoreStack';
-import { colors, typography, spacing, breakpoints, shadows } from '../theme';
+import { colors, typography, spacing, breakpoints } from '../theme';
 import { WebSidebar } from '../components/layout/WebSidebar';
 import { useAuthStore } from '../stores/authStore';
 import { signOut } from '../services/firebase/auth';
@@ -149,8 +149,10 @@ export const MainTabs: React.FC = () => {
       {isWebWide && <WebSidebarNav onLogout={handleLogout} />}
       <View style={styles.tabContainer}>
         <Tab.Navigator
+          safeAreaInsets={{ bottom: 0 }}
           screenOptions={({ route }) => ({
             headerShown: false,
+            sceneContainerStyle: styles.scene,
             tabBarIcon: ({ focused, color }) => {
               let iconName: keyof typeof Ionicons.glyphMap;
               switch (route.name) {
@@ -192,13 +194,13 @@ export const MainTabs: React.FC = () => {
             component={DashboardStack}
             options={{
               tabBarLabel: t('dashboard.title'),
+              listeners: ({ navigation }) => ({
+                tabPress: (e) => {
+                  e.preventDefault();
+                  navigation.navigate('DashboardTab', { screen: 'Dashboard' });
+                },
+              }),
             }}
-            listeners={({ navigation }) => ({
-              tabPress: (e) => {
-                e.preventDefault();
-                navigation.navigate('DashboardTab', { screen: 'Dashboard' } as any);
-              },
-            })}
           />
           <Tab.Screen name="NetworkTab" component={NetworkStack} options={{ tabBarLabel: t('network.title') }} />
           <Tab.Screen
@@ -206,13 +208,13 @@ export const MainTabs: React.FC = () => {
             component={ProfileStack}
             options={{
               tabBarLabel: t('profile.title'),
+              listeners: ({ navigation }) => ({
+                tabPress: (e) => {
+                  e.preventDefault();
+                  navigation.navigate('ProfileTab', { screen: 'Profile' });
+                },
+              }),
             }}
-            listeners={({ navigation }) => ({
-              tabPress: (e) => {
-                e.preventDefault();
-                navigation.navigate('ProfileTab', { screen: 'Profile' } as any);
-              },
-            })}
           />
           <Tab.Screen name="MoreTab" component={MoreStack} options={{ tabBarLabel: t('more.title', 'More') }} />
         </Tab.Navigator>
@@ -224,18 +226,27 @@ export const MainTabs: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  scene: {
+    backgroundColor: colors.background,
+  },
+  tabContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
   webRoot: {
     flexDirection: 'row',
   },
-  tabContainer: {
-    flex: 1,
-  },
   tabBar: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderLight,
-    ...shadows.md,
+    elevation: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   webHiddenTabBar: {
     display: 'none',

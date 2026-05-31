@@ -30,7 +30,6 @@ import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows
 import type { DashboardStackParamList, User } from '../../types';
 import { normalizeText, normalizeTextLower } from '../../utils/helpers';
 
-
 type Props = StackScreenProps<DashboardStackParamList, 'ScheduleMeeting'>;
 
 const isWeb = Platform.OS === 'web';
@@ -196,10 +195,11 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           const list = Object.entries(val)
             .map(([key, data]) => ({ ...(data as any), uid: key } as User))
             .filter((u) => (
-              u.uid !== currentUser?.uid && u.role !== 'admin' && u.role !== 'superadmin'
+              u.uid !== currentUser?.uid
+              && u.role !== 'admin'
+              && u.role !== 'superadmin'
               && normalizeText(u.name).length > 0
             ));
-
           setMembers(list);
 
           if (preselectedUserId) {
@@ -207,7 +207,6 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
             if (found) {
               setSelectedMember(found);
               setMemberSearch(normalizeText(found.name));
-
             }
           }
         }
@@ -225,7 +224,6 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
       (m) =>
         normalizeTextLower(m.name).includes(q) ||
         normalizeTextLower(m.businessName).includes(q),
-
     );
   }, [members, memberSearch]);
 
@@ -234,7 +232,6 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleSelectMember = (member: User) => {
     setSelectedMember(member);
     setMemberSearch(normalizeText(member.name));
-
     if (member.phone) setContactNumber(member.phone);
     setDropdownOpen(false);
     if (errors.member) setErrors((prev) => ({ ...prev, member: undefined }));

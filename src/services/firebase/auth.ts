@@ -19,7 +19,6 @@ const verifyEmailOtpAndAttachCallable = httpsCallable<{ email: string; code: str
   functions,
   'verifyEmailOtpAndAttach',
 );
-
 const checkIdentifiersCallable = httpsCallable<
   { email?: string; phone?: string; excludeUid?: string },
   { emailInUse: boolean; phoneInUse: boolean; emailUid?: string; phoneUid?: string }
@@ -97,7 +96,6 @@ export async function verifyEmailOtpAndAttach(email: string, code: string): Prom
     throw err;
   }
 }
-
 
 export async function checkIdentifiersAvailability(args: {
   email?: string;
@@ -188,8 +186,8 @@ export function onAuthStateChanged(
 ): () => void {
   if (Platform.OS !== 'web') {
     const { onAuthStateChangedNative } = require('./authNative');
-    return onAuthStateChangedNative((user: any) => {
-      const fn = typeof callback === 'function' ? callback : (callback as any).next;
+    return onAuthStateChangedNative((user) => {
+      const fn = typeof callback === 'function' ? callback : callback.next;
       if (fn) fn(user as unknown as FirebaseUser | null);
     });
   }

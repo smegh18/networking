@@ -5,13 +5,11 @@ import { colors, typography, borderRadius, spacing } from '../../theme';
 import { Location, SocialLinks as SocialLinksType } from '../../types';
 import { formatBusinessMapAddress, openWhatsApp, openInstagram, openFacebook, openLinkedIn, openGoogle, openGoogleMaps } from '../../utils/helpers';
 
-
 interface SocialLinksProps {
   links: SocialLinksType;
   businessAddress?: string;
   businessArea?: string;
   location?: Partial<Location>;
-
 }
 
 const SOCIAL_CONFIG = [
@@ -22,17 +20,28 @@ const SOCIAL_CONFIG = [
   { key: 'google' as const, label: 'Google', icon: 'logo-google', color: '#4285F4', getUrl: openGoogle },
 ];
 
-export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress, businessArea, location }) => {
-
+export const SocialLinks: React.FC<SocialLinksProps> = ({
+  links,
+  businessAddress,
+  businessArea,
+  location,
+}) => {
   const handlePress = (url: string) => {
     Linking.openURL(url).catch(() => {});
   };
 
-  const activeLinks = SOCIAL_CONFIG.filter((s) => links[s.key]);
+  const safeLinks = links ?? {
+    instagram: '',
+    facebook: '',
+    whatsapp: '',
+    linkedin: '',
+    google: '',
+  };
+
+  const activeLinks = SOCIAL_CONFIG.filter((s) => safeLinks[s.key]);
   const mapAddress = formatBusinessMapAddress(businessAddress, businessArea, location);
 
   if (activeLinks.length === 0 && !mapAddress) return null;
-
 
   return (
     <View style={styles.container}>
@@ -40,7 +49,7 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress
         <TouchableOpacity
           key={social.key}
           style={[styles.button, { backgroundColor: social.color + '12' }]}
-          onPress={() => handlePress(social.getUrl(links[social.key] || ''))}
+          onPress={() => handlePress(social.getUrl(safeLinks[social.key] || ''))}
           activeOpacity={0.7}
         >
           <Ionicons name={social.icon as any} size={22} color={social.color} />
@@ -51,7 +60,6 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({ links, businessAddress
         <TouchableOpacity
           style={[styles.button, { backgroundColor: '#34A85312' }]}
           onPress={() => handlePress(openGoogleMaps(mapAddress))}
-
           activeOpacity={0.7}
         >
           <Ionicons name="location" size={22} color="#34A853" />

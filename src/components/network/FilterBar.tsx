@@ -13,7 +13,6 @@ import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { spacing, layout, colors, typography, borderRadius, shadows } from '../../theme';
 import { normalizeText, normalizeTextLower, normalizeStringArray } from '../../utils/helpers';
 
-
 interface FilterBarProps {
   chapters: { id: string; name: string }[];
   selectedChapter: string;
@@ -65,14 +64,13 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
 }) => {
   const dropdownMaxHeight = useDropdownMaxHeight(220);
   const selectedLabel = selectedValue
-    ? normalizeText(options.find((opt) => opt.value === selectedValue)?.label || '') || allLabel
+    ? normalizeText(options.find((opt) => opt.value === selectedValue)?.label) || allLabel
     : allLabel;
 
   const filteredOptions = useMemo(() => {
     const q = normalizeTextLower(searchValue);
     if (!q) return options;
     return options.filter((opt) => normalizeTextLower(opt.label).includes(q));
-
   }, [options, searchValue]);
 
   const displayValue = isOpen ? searchValue : selectedLabel;
@@ -175,7 +173,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   );
   const categoryOptions = useMemo(
     () => normalizeStringArray(categories).map((cat) => ({ value: cat, label: cat })),
-
     [categories],
   );
 

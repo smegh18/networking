@@ -9,7 +9,7 @@ interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   style?: ViewStyle;
-
+  compact?: boolean;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -18,15 +18,25 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon,
   color,
   style,
+  compact = false,
 }) => {
   return (
-    <View style={[styles.card, { borderLeftColor: color }, style]}>
-      <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
-        <Ionicons name={icon} size={22} color={color} />
+    <View style={[styles.card, compact && styles.cardCompact, { borderLeftColor: color }, style]}>
+      <View
+        style={[
+          styles.iconContainer,
+          compact && styles.iconContainerCompact,
+          { backgroundColor: color + '15' },
+        ]}
+      >
+        <Ionicons name={icon} size={compact ? 16 : 22} color={color} />
       </View>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.title} numberOfLines={2}>{title}</Text>
-
+      <Text style={[styles.value, compact && styles.valueCompact]} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={2}>
+        {title}
+      </Text>
     </View>
   );
 };
@@ -43,7 +53,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-
+  cardCompact: {
+    padding: spacing.sm,
+    borderLeftWidth: 2,
+    minWidth: 0,
+  },
   iconContainer: {
     width: 44,
     height: 44,
@@ -52,16 +66,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
-
+  iconContainerCompact: {
+    width: 28,
+    height: 28,
+    marginBottom: spacing.xs,
+  },
   value: {
     ...typography.h2,
     color: colors.text,
     marginBottom: spacing.xs,
   },
-
+  valueCompact: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
   title: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-
+  titleCompact: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
 });

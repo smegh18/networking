@@ -59,7 +59,7 @@ const AdminAdsScreen: React.FC<Props> = ({ navigation }) => {
     {
       key: 'imageURL',
       label: 'Preview',
-      width: 80,
+      width: 140,
       render: (item: Ad) =>
         item.imageURL ? (
           <Image source={{ uri: item.imageURL }} style={styles.thumbnail} resizeMode="cover" />
@@ -69,12 +69,12 @@ const AdminAdsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ),
     },
-    { key: 'title', label: 'Title', sortable: true, width: 200 },
-    { key: 'businessName', label: 'Business', sortable: true, width: 160 },
+    { key: 'title', label: 'Title', sortable: true, width: 300 },
+    { key: 'businessName', label: 'Business', sortable: true, width: 260 },
     {
       key: 'active',
       label: 'Status',
-      width: 100,
+      width: 140,
       render: (item: Ad) => (
         <AdminStatusBadge
           label={item.active ? 'Active' : 'Inactive'}
@@ -86,7 +86,7 @@ const AdminAdsScreen: React.FC<Props> = ({ navigation }) => {
       key: 'expiresAt',
       label: 'Expires',
       sortable: true,
-      width: 130,
+      width: 180,
       render: (item: Ad) => (
         <Text style={styles.dateText}>
           {item.expiresAt
@@ -117,6 +117,8 @@ const AdminAdsScreen: React.FC<Props> = ({ navigation }) => {
         keyExtractor={(item) => item.id}
         loading={loading}
         emptyMessage="No ads found"
+        paginate={false}
+        fullWidth
         actions={(item) => (
           <View style={styles.actionRow}>
             <TouchableOpacity onPress={() => handleToggle(item)} activeOpacity={0.7}>
@@ -179,14 +181,14 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
   thumbnail: {
-    width: 56,
-    height: 36,
-    borderRadius: 4,
+    width: 100,
+    height: 56,
+    borderRadius: 6,
     backgroundColor: colors.surfaceVariant,
   },
   noImage: {
-    width: 56,
-    height: 36,
+    width: 100,
+    height: 56,
     borderRadius: 4,
     backgroundColor: colors.surfaceVariant,
     alignItems: 'center',

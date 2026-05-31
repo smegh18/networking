@@ -1,273 +1,240 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+
 import { AdminLayout } from '../components/layout/AdminLayout';
+import { AdminKPICard } from '../components/ui/AdminKPICard';
 import { AdminDataTable } from '../components/ui/AdminDataTable';
 import { AdminTabFilter } from '../components/ui/AdminTabFilter';
 import { AdminStatusBadge } from '../components/ui/AdminStatusBadge';
-import { AdminKPICard } from '../components/ui/AdminKPICard';
-import { AdminChipsInput } from '../components/ui/AdminChipsInput';
+import { AdminModal } from '../components/ui/AdminModal';
+import { SearchBar } from '../../components/ui/SearchBar';
 import { ADMIN_LAYOUT } from '../constants/layout';
-import { colors, typography, spacing, borderRadius } from '../../theme';
-import { updateBusinessStatusAdmin, deleteBusinessTransaction } from '../services/adminFirestore';
-import { useRealtimeCollection } from '../../hooks/useRealtimeData';
+
+import { colors, spacing, typography, borderRadius } from '../../theme';
+import { useFirestoreListener } from '../hooks/useFirestoreListener';
+import { deleteBusinessTransaction } from '../services/adminFirestore';
+
 import type { AdminStackParamList } from '../types/admin';
 import type { Business } from '../../types';
+import { normalizeTextLower } from '../../utils/helpers';
 
-type Props = StackScreenProps<AdminStackParamList, 'AdminTransaction'>;
+type Props = StackScreenProps<AdminStackParamList, 'AdminTransactions'>;
 
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  ask_board: 'Ask Board',
-  one_on_one: '1-on-1',
-  referral: 'Referral',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: colors.warning,
-  approved: colors.success,
-  rejected: colors.error,
-};
+/** Placeholder until live aggregates are wired from Firestore */
+const DUMMY_BUSINESS_STATS = {
+  totalBusiness: 12_500,
+  businessGiven: 7_200,
+  businessReceived: 5_300,
+} as const;
 
 const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isCompact = width < 900;
-  const { items: rawTransactions, loading } = useRealtimeCollection<Business>('business');
-  const [searchTags, setSearchTags] = useState<string[]>([]);
+  
+  const { data: transactions, loading } = useFirestoreListener<Business>('business');
+  
+  const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-
-  const transactions = useMemo(() => {
-    return [...rawTransactions].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
-  }, [rawTransactions]);
-
-  const stats = useMemo(() => {
-    const approved = transactions.filter(t => t.status === 'approved');
-    const pending = transactions.filter(t => !t.status || t.status === 'pending');
-    
-    return {
-      totalBusiness: approved.reduce((sum, t) => sum + (t.amount || 0), 0),
-      approvedCount: approved.length,
-      pendingCount: pending.length,
-    };
-  }, [transactions]);
-
-  const handleUpdateStatus = async (id: string, status: Business['status']) => {
-    try {
-      await updateBusinessStatusAdmin(id, status);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteBusinessTransaction(id);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const [deleteModal, setDeleteModal] = useState<Business | null>(null);
 
   const filteredTransactions = useMemo(() => {
-    let result = transactions;
+    let result = [...transactions].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-    if (activeTab !== 'all') {
-      result = result.filter((t) => t.status === activeTab);
+    if (activeTab === 'pending') {
+      result = result.filter((t) => t.status === 'pending');
+    } else if (activeTab === 'approved') {
+      result = result.filter((t) => t.status === 'approved');
     }
 
-    if (searchTags.length > 0) {
-      result = result.filter((t) => {
-        return searchTags.every((tag) => {
-          const q = tag.toLowerCase();
-          return (
-            t.givenByName.toLowerCase().includes(q) ||
-            t.givenToName.toLowerCase().includes(q) ||
-            t.name.toLowerCase().includes(q) ||
-            t.chapterName.toLowerCase().includes(q) ||
-            (t.city || '').toLowerCase().includes(q) ||
-            (t.state || '').toLowerCase().includes(q) ||
-            String(t.amount).includes(q) ||
-            (BUSINESS_TYPE_LABELS[t.type] || t.type).toLowerCase().includes(q) ||
-            (t.status || 'pending').toLowerCase().includes(q)
-          );
-        });
-      });
+    if (search.trim()) {
+      const q = normalizeTextLower(search);
+      result = result.filter(
+        (t) =>
+          normalizeTextLower(t.givenByName).includes(q) ||
+          normalizeTextLower(t.givenToName).includes(q) ||
+          normalizeTextLower(t.chapterName || '').includes(q)
+      );
     }
 
     return result;
-  }, [transactions, activeTab, searchTags]);
+  }, [transactions, activeTab, search]);
 
-  const tabs = useMemo(() => [
-    { key: 'all', label: 'All', count: transactions.length },
-    { key: 'pending', label: 'Pending', count: transactions.filter((t) => t.status === 'pending').length },
-    { key: 'approved', label: 'Approved', count: transactions.filter((t) => t.status === 'approved').length },
-  ], [transactions]);
+  const tabs = useMemo(
+    () => [
+      { key: 'all', label: 'All', count: transactions.length },
+      {
+        key: 'pending',
+        label: 'Pending',
+        count: transactions.filter((t) => t.status === 'pending').length,
+      },
+      {
+        key: 'approved',
+        label: 'Approved',
+        count: transactions.filter((t) => t.status === 'approved').length,
+      },
+    ],
+    [transactions]
+  );
 
   const formatAmount = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(0)}K`;
-    return `₹${amount}`;
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const columns = [
-    {
-      key: 'date',
-      label: 'Date',
-      sortable: true,
-      width: 90,
-      render: (item: Business) => (
-        <Text style={styles.dateText}>
-          {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-        </Text>
-      ),
-    },
-    {
-      key: 'givenByName',
-      label: 'From',
-      sortable: true,
-      width: 150,
-    },
-    {
-      key: 'chapterName',
-      label: 'Chapter',
-      sortable: true,
-      width: 180,
-    },
-    {
-      key: 'city',
-      label: 'City',
-      sortable: true,
-      width: 50,
-    },
-    {
-      key: 'state',
-      label: 'State',
-      sortable: true,
-      width: 50,
-    },
-    {
-      key: 'givenToName',
-      label: 'To',
-      sortable: true,
-      width: 150,
-      render: (item: Business) => (
-        <View>
-          <Text style={styles.mainText}>{item.givenToName}</Text>
-          <Text style={styles.subText}>{item.name}</Text>
-        </View>
-      ),
-    },
-    {
-      key: 'type',
-      label: 'Type',
-      width: 110,
-      render: (item: Business) => (
-        <Text style={styles.typeText}>{BUSINESS_TYPE_LABELS[item.type] || item.type}</Text>
-      ),
-    },
-    {
-      key: 'amount',
-      label: 'Amount',
-      sortable: true,
-      width: 90,
-      render: (item: Business) => (
-        <Text style={styles.amountText}>{formatAmount(item.amount)}</Text>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      width: 110,
-      render: (item: Business) => (
-        <AdminStatusBadge
-          label={item.status || 'pending'}
-          color={STATUS_COLORS[item.status || 'pending'] || colors.textSecondary}
-        />
-      ),
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      width: 70,
-      render: (item: Business) => (
-        <View style={styles.actions}>
-          {/*
-          {item.status === 'pending' && (
-            <TouchableOpacity onPress={() => handleUpdateStatus(item.id, 'approved')}>
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.success} />
+  const columns = useMemo(
+    () => [
+      {
+        key: 'date',
+        label: 'Date',
+        width: 140,
+        render: (item: Business) => (
+          <Text style={styles.dateText}>
+            {item.date ? new Date(item.date).toLocaleDateString('en-IN', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            }) : 'N/A'}
+          </Text>
+        ),
+      },
+      {
+        key: 'givenByName',
+        label: 'From',
+        width: 200,
+        render: (item: Business) => (
+          <View>
+            <Text style={styles.nameText}>{item.givenByName}</Text>
+            <Text style={styles.chapterText}>{item.chapterName}</Text>
+          </View>
+        ),
+      },
+      {
+        key: 'givenToName',
+        label: 'To',
+        width: 280,
+        render: (item: Business) => (
+          <Text style={styles.nameText}>{item.givenToName}</Text>
+        ),
+      },
+      {
+        key: 'amount',
+        label: 'Amount',
+        width: 180,
+        render: (item: Business) => (
+          <Text style={styles.amountText}>{formatAmount(item.amount)}</Text>
+        ),
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        width: 150,
+        render: (item: Business) => (
+          <AdminStatusBadge
+            label={item.status || 'pending'}
+            color={
+              item.status === 'approved' 
+                ? colors.success 
+                : item.status === 'rejected' 
+                ? colors.error 
+                : colors.warning
+            }
+          />
+        ),
+      },
+      {
+        key: 'actions',
+        label: 'Actions',
+        width: 160,
+        render: (item: Business) => (
+          <View style={styles.actions}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('AdminTransactionForm', { transactionId: item.id })
+              }
+            >
+              <Ionicons name="create-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
-          )}
-          */}
-          <TouchableOpacity onPress={() => navigation.navigate('AdminTransactionForm', { transactionId: item.id })}>
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          {/*
-          <TouchableOpacity onPress={() => handleDelete(item.id)}>
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
-          </TouchableOpacity>
-          */}
-        </View>
-      ),
-    },
-  ];
+            <TouchableOpacity onPress={() => setDeleteModal(item)}>
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          </View>
+        ),
+      },
+    ],
+    [navigation]
+  );
+
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    await deleteBusinessTransaction(deleteModal.id);
+    setDeleteModal(null);
+  };
 
   return (
-    <AdminLayout title="Business Transactions" activeScreen="AdminTransaction">
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.searchWrap}>
-            <AdminChipsInput
-              label=""
-              values={searchTags}
-              onChange={setSearchTags}
-              placeholder="Filter by name, chapter, city, status... (Press Enter to add)"
-            />
-          </View>
-        </View>
-
-        <AdminTabFilter
-          tabs={tabs}
-          activeKey={activeTab}
-          onSelect={setActiveTab}
+    <AdminLayout title="Business Transactions" activeScreen="AdminTransactions">
+      <View style={styles.kpiRow}>
+        <AdminKPICard
+          title="Total Business"
+          value={formatAmount(DUMMY_BUSINESS_STATS.totalBusiness)}
+          icon="cash"
+          iconColor={colors.primary}
+          iconBg={colors.primaryFaded}
         />
+        <AdminKPICard
+          title="Business Given"
+          value={formatAmount(DUMMY_BUSINESS_STATS.businessGiven)}
+          icon="arrow-up-circle"
+          iconColor={colors.success}
+          iconBg={colors.successLight}
+        />
+        <AdminKPICard
+          title="Business Received"
+          value={formatAmount(DUMMY_BUSINESS_STATS.businessReceived)}
+          icon="arrow-down-circle"
+          iconColor={colors.accent}
+          iconBg={colors.accentFaded}
+        />
+      </View>
 
-        {/* KPI Cards */}
-        <View style={styles.kpiRow}>
-          <AdminKPICard
-            title="Total Business"
-            value={formatAmount(stats.totalBusiness)}
-            icon="cash-outline"
-            iconColor={colors.success}
-            iconBg={colors.success + '15'}
-          />
-          <AdminKPICard
-            title="Business Given"
-            value={0}
-            icon="arrow-up-circle-outline"
-            iconColor={colors.primary}
-            iconBg={colors.primaryFaded}
-          />
-          <AdminKPICard
-            title="Business Rweceived"
-            value={0}
-            icon="arrow-down-circle-outline"
-            iconColor={colors.warning}
-            iconBg={colors.warning + '15'}
-          />
-        </View>
-
-        <View style={styles.tableWrap}>
-          <AdminDataTable
-            columns={columns}
-            data={filteredTransactions}
-            keyExtractor={(item) => item.id}
-            loading={loading}
-            enablePagination={false}
-            maxBodyHeight={isCompact ? 450 : 650}
-            emptyMessage="No business transactions found"
+      <View style={[styles.topBar, isCompact && styles.topBarCompact]}>
+        <View style={styles.searchWrap}>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search by name or chapter..."
           />
         </View>
       </View>
+
+      <AdminTabFilter
+        tabs={tabs}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+      />
+
+      <AdminDataTable
+        columns={columns}
+        data={filteredTransactions}
+        keyExtractor={(item) => item.id}
+        loading={loading}
+        paginate={false}
+        fullWidth
+      />
+
+      <AdminModal
+        visible={!!deleteModal}
+        title="Delete Transaction"
+        message="Are you sure you want to delete this transaction?"
+        confirmLabel="Delete"
+        confirmColor={colors.error}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteModal(null)}
+      />
     </AdminLayout>
   );
 };
@@ -275,56 +242,43 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
 export default AdminTransactionScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingVertical: spacing.lg,
-  },
   kpiRow: {
     flexDirection: 'row',
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
+    gap: ADMIN_LAYOUT.elementGap,
+    marginBottom: ADMIN_LAYOUT.sectionGap,
     flexWrap: 'wrap',
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    gap: spacing.md,
+    marginBottom: ADMIN_LAYOUT.sectionGap,
+    gap: ADMIN_LAYOUT.elementGap,
+  },
+  topBarCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   searchWrap: {
     flex: 1,
   },
-  tableWrap: {
-    marginTop: spacing.md,
+  nameText: {
+    ...typography.bodySmallMedium,
+    color: colors.text,
+  },
+  chapterText: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  amountText: {
+    ...typography.bodySemiBold,
+    color: colors.primary,
   },
   dateText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  mainText: {
-    ...typography.bodySmallMedium,
-    color: colors.text,
-  },
-  subText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  typeText: {
-    ...typography.captionMedium,
-    color: colors.primary,
-    backgroundColor: colors.primary + '10',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  amountText: {
-    ...typography.bodySmallMedium,
-    color: colors.success,
-  },
   actions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    gap: 16,
   },
 });

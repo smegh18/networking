@@ -249,7 +249,6 @@ exports.verifyEmailOtpAndAttach = functions.region('us-central1').https.onCall(a
 });
 
 /**
-
  * Callable: checkIdentifiers
  * Body: { email?: string, phone?: string, excludeUid?: string }
  * Checks whether the email/phone are already used in Firebase Auth or RTDB.

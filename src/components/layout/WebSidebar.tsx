@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, ScrollView } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
@@ -52,95 +51,99 @@ export const WebSidebar: React.FC<WebSidebarProps> = ({
 
   return (
     <View style={styles.sidebar}>
-      {/* Logo / Brand */}
-      <View style={styles.brand}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('../../../assets/logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.brandName}>{t('common.appName')}</Text>
-      </View>
-
-      {/* User Mini Profile */}
-      <TouchableOpacity
-        style={[styles.userCard, activeTab === 'ProfileTab' && styles.userCardActive]}
-        onPress={() => onTabPress('ProfileTab')}
-        activeOpacity={0.7}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <Avatar name={userName} uri={photoURL} size="sm" />
-        <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
-          <Text style={styles.userBusiness} numberOfLines={1}>{businessName}</Text>
+        {/* Logo / Brand */}
+        <View style={styles.brand}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.brandName}>{t('common.appName')}</Text>
         </View>
-      </TouchableOpacity>
 
-      {/* Main Navigation */}
-      <View style={styles.navSection}>
-        <Text style={styles.navSectionLabel}>MAIN MENU</Text>
-        {navItems.map((item) => {
-          const isActive = activeTab === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.navItem, isActive && styles.navItemActive]}
-              onPress={() => onTabPress(item.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={isActive ? item.iconActive : item.icon}
-                size={22}
-                color={isActive ? colors.primary : colors.textSecondary}
-              />
-              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-                {item.label}
-              </Text>
-              {item.badge && item.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        {/* User Mini Profile */}
+        <TouchableOpacity
+          style={[styles.userCard, activeTab === 'ProfileTab' && styles.userCardActive]}
+          onPress={() => onTabPress('ProfileTab')}
+          activeOpacity={0.7}
+        >
+          <Avatar name={userName} uri={photoURL} size="sm" />
+          <View style={styles.userInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
+            <Text style={styles.userBusiness} numberOfLines={1}>{businessName}</Text>
+          </View>
+        </TouchableOpacity>
 
-      {/* Secondary Navigation */}
-      <View style={styles.navSection}>
-        <Text style={styles.navSectionLabel}>OTHER</Text>
-        {secondaryItems.map((item) => {
-          const isActive = activeTab === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.navItem, isActive && styles.navItemActive]}
-              activeOpacity={0.7}
-              onPress={() => onTabPress(item.key)}
-            >
-              <Ionicons
-                name={isActive ? item.iconActive : item.icon}
-                size={22}
-                color={isActive ? colors.primary : colors.textSecondary}
-              />
-              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        {/* Main Navigation */}
+        <View style={styles.navSection}>
+          <Text style={styles.navSectionLabel}>MAIN MENU</Text>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.navItem, isActive && styles.navItemActive]}
+                onPress={() => onTabPress(item.key)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isActive ? item.iconActive : item.icon}
+                  size={22}
+                  color={isActive ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                  {item.label}
+                </Text>
+                {item.badge && item.badge > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      {/* Spacer */}
-      <View style={styles.spacer} />
+        {/* Secondary Navigation */}
+        <View style={styles.navSection}>
+          <Text style={styles.navSectionLabel}>OTHER</Text>
+          {secondaryItems.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.navItem, isActive && styles.navItemActive]}
+                activeOpacity={0.7}
+                onPress={() => onTabPress(item.key)}
+              >
+                <Ionicons
+                  name={isActive ? item.iconActive : item.icon}
+                  size={22}
+                  color={isActive ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      {/* Logout */}
-      <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.7}>
-        <Ionicons name="log-out-outline" size={22} color={colors.error} />
-        <Text style={styles.logoutText}>{t('auth.logout')}</Text>
-      </TouchableOpacity>
+        {/* Spacer */}
+        <View style={styles.spacer} />
 
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={22} color={colors.error} />
+          <Text style={styles.logoutText}>{t('auth.logout')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -151,11 +154,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRightWidth: 1,
     borderRightColor: colors.border,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
     ...(Platform.OS === 'web' ? { height: '100vh' as any, position: 'sticky' as any, top: 0 } : {}),
   },
-
+  scrollContent: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    minHeight: '100%',
+  },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',

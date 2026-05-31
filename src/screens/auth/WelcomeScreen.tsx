@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   useWindowDimensions,
-
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +28,6 @@ const MOBILE_BREAKPOINT = 400;
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const compact = width < MOBILE_BREAKPOINT;
-
   const { t, i18n } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'en');
 
@@ -44,11 +42,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 
   const handleRegister = () => {
     navigation.navigate('PhoneLogin', { mode: 'register' });
-
   };
 
   return (
-    <ScreenWrapper scrollable={false} padded={false} edges={['top', 'bottom']}>
+    <ScreenWrapper scrollable padded={false} edges={['top', 'bottom']} contentStyle={styles.scrollContent}>
       <View style={[styles.container, compact && styles.containerCompact]}>
         {/* Top decorative circles */}
         <View style={[styles.decorationContainer, compact && styles.decorationContainerCompact]}>
@@ -120,19 +117,15 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
               <Text style={styles.registerButtonText}>{t('auth.register', 'Register')}</Text>
               <Ionicons name="person-add-outline" size={compact ? 16 : 18} color={colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.adminLink} onPress={() => navigation.navigate('AdminLogin')} activeOpacity={0.7}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={colors.textTertiary} />
-              <Text style={styles.adminLinkText}>{t('auth.adminLogin', 'Admin Login')}</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Language selection */}
+        {/* Language selection — kept below auth so nothing overlaps on small screens */}
         <View style={[styles.languageSection, compact && styles.languageSectionCompact]}>
           <Text style={styles.languageLabel}>
             {t('welcome.selectLanguage', 'Select Language')}
           </Text>
-          <View style={styles.languageRow}>
+          <View style={[styles.languageRow, compact && styles.languageRowCompact]}>
             {LANGUAGES.map((lang) => (
               <TouchableOpacity
                 key={lang.code}
@@ -157,22 +150,39 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             ))}
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.adminLink}
+          onPress={() => navigation.navigate('AdminLogin')}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.adminLogin', 'Admin Login')}
+        >
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.textSecondary} />
+          <Text style={styles.adminLinkText}>{t('auth.adminLogin', 'Admin Login')}</Text>
+        </TouchableOpacity>
       </View>
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+  },
   container: {
-    flex: 1,
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: layout.screenPadding,
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
+    width: '100%',
+    maxWidth: layout.maxContentWidth,
+    alignSelf: 'center',
   },
   containerCompact: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing['2xl'],
   },
   decorationContainer: {
     position: 'absolute',
@@ -212,17 +222,14 @@ const styles = StyleSheet.create({
     right: 60,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    maxWidth: layout.maxContentWidth,
-    paddingTop: spacing['5xl'],
-
+    paddingTop: spacing['3xl'],
+    marginBottom: spacing.xl,
   },
   contentCompact: {
-    paddingTop: spacing.xl,
-    justifyContent: 'center',
+    paddingTop: spacing.lg,
+    marginBottom: spacing.md,
   },
   logoContainer: {
     marginBottom: spacing['2xl'],
@@ -230,7 +237,6 @@ const styles = StyleSheet.create({
   },
   logoContainerCompact: {
     marginBottom: spacing.lg,
-
   },
   logoCircle: {
     width: 110,
@@ -275,7 +281,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing['4xl'],
-
     paddingHorizontal: spacing['2xl'],
   },
   subtitleCompact: {
@@ -286,7 +291,6 @@ const styles = StyleSheet.create({
   featuresContainer: {
     width: '100%',
     marginBottom: spacing['4xl'],
-
     paddingHorizontal: spacing.sm,
   },
   featuresContainerCompact: {
@@ -329,7 +333,6 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: spacing.lg,
     marginTop: spacing.md,
-
   },
   authButtonsCompact: {
     gap: spacing.md,
@@ -357,22 +360,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.xs,
-
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    minHeight: 44,
   },
   adminLinkText: {
-    ...typography.caption,
-    color: colors.textTertiary,
+    ...typography.bodySmallMedium,
+    color: colors.textSecondary,
   },
   languageSection: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: spacing['2xl'],
+    paddingTop: spacing.xl,
+    marginTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderLight,
   },
   languageSectionCompact: {
     paddingTop: spacing.lg,
+    marginTop: spacing.sm,
   },
   languageLabel: {
     ...typography.caption,
@@ -383,7 +391,12 @@ const styles = StyleSheet.create({
   },
   languageRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.md,
+  },
+  languageRowCompact: {
+    gap: spacing.sm,
   },
   languageChip: {
     paddingHorizontal: spacing.xl,

@@ -18,12 +18,13 @@ interface AdminDataTableProps<T> {
   loading?: boolean;
   emptyMessage?: string;
   pageSize?: number;
-  enablePagination?: boolean;
-  maxBodyHeight?: number;
-
   actions?: (item: T) => React.ReactNode;
   /** When provided, rows become clickable and invoke this callback */
   onRowPress?: (item: T) => void;
+  /** When false, all rows are shown and pagination is hidden */
+  paginate?: boolean;
+  /** Stretch table to full container width (at least column sum) */
+  fullWidth?: boolean;
 }
 
 export function AdminDataTable<T>({
@@ -33,21 +34,23 @@ export function AdminDataTable<T>({
   loading = false,
   emptyMessage = 'No data found',
   pageSize = 10,
-  enablePagination = true,
-  maxBodyHeight,
-
   actions,
   onRowPress,
+  paginate = true,
+  fullWidth = false,
 }: AdminDataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [page, setPage] = useState(0);
 
+  const actionsColumnWidth = fullWidth ? 180 : 120;
+
   const totalTableWidth = useMemo(() => {
     const colCount = columns.length + (actions ? 1 : 0);
-    const sumWidths = columns.reduce((acc, c) => acc + (c.width ?? 150), 0) + (actions ? 120 : 0);
+    const sumWidths =
+      columns.reduce((acc, c) => acc + (c.width ?? 150), 0) + (actions ? actionsColumnWidth : 0);
     return sumWidths + (colCount - 1) * COLUMN_GAP;
-  }, [columns, actions]);
+  }, [columns, actions, actionsColumnWidth]);
 
   const sortedData = useMemo(() => {
     if (!sortKey) return data;
@@ -61,10 +64,15 @@ export function AdminDataTable<T>({
     });
   }, [data, sortKey, sortAsc]);
 
-  const totalPages = Math.ceil(sortedData.length / pageSize);
-  const pagedData = sortedData.slice(page * pageSize, (page + 1) * pageSize);
-  const tableData = enablePagination ? pagedData : sortedData;
+  const effectivePageSize = paginate ? pageSize : Math.max(sortedData.length, 1);
+  const totalPages = Math.ceil(sortedData.length / effectivePageSize);
+  const pagedData = paginate
+    ? sortedData.slice(page * pageSize, (page + 1) * pageSize)
+    : sortedData;
 
+  const tableMinWidth = fullWidth
+    ? ('100%' as const)
+    : Math.max(totalTableWidth, 720);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -87,7 +95,7 @@ export function AdminDataTable<T>({
   return (
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={[styles.tableCard, { minWidth: Math.max(totalTableWidth, 400) }]}>
+        <View style={[styles.tableCard, { minWidth: tableMinWidth, width: fullWidth ? '100%' : undefined }]}>
           {/* Header */}
           <View style={styles.headerRow}>
             {columns.map((col) => (
@@ -110,67 +118,58 @@ export function AdminDataTable<T>({
               </TouchableOpacity>
             ))}
             {actions && (
-              <View style={[styles.headerCell, { width: 120 }]}>
+              <View style={[styles.headerCell, { width: actionsColumnWidth }]}>
                 <Text style={styles.headerText}>Actions</Text>
               </View>
             )}
           </View>
 
           {/* Rows */}
-          {tableData.length === 0 ? (
-
+          {pagedData.length === 0 ? (
             <View style={styles.emptyRow}>
               <Text style={styles.emptyText}>{emptyMessage}</Text>
             </View>
           ) : (
-            <ScrollView
-              style={[styles.bodyScroll, maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined]}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-            >
-              {tableData.map((item, index) => {
-                const RowWrapper = onRowPress ? TouchableOpacity : View;
-                const rowProps = onRowPress
-                  ? { onPress: () => onRowPress(item), activeOpacity: 0.7 }
-                  : {};
-                return (
-                  <RowWrapper
-                    key={keyExtractor(item)}
-                    style={[styles.dataRow, index % 2 === 0 && styles.dataRowAlt]}
-                    {...rowProps}
+            pagedData.map((item, index) => {
+              const RowWrapper = onRowPress ? TouchableOpacity : View;
+              const rowProps = onRowPress
+                ? { onPress: () => onRowPress(item), activeOpacity: 0.7 }
+                : {};
+              return (
+              <RowWrapper
+                key={keyExtractor(item)}
+                style={[styles.dataRow, index % 2 === 0 && styles.dataRowAlt]}
+                {...rowProps}
+              >
+                {columns.map((col) => (
+                  <View
+                    key={col.key}
+                    style={[styles.dataCell, col.width ? { width: col.width } : { flex: 1, minWidth: 120 }]}
                   >
-                    {columns.map((col) => (
-                      <View
-                        key={col.key}
-                        style={[styles.dataCell, col.width ? { width: col.width } : { flex: 1, minWidth: 120 }]}
-                      >
-                        {col.render ? (
-                          col.render(item)
-                        ) : (
-                          <Text style={styles.cellText} numberOfLines={1}>
-                            {String((item as any)[col.key] ?? '—')}
-                          </Text>
-                        )}
-                      </View>
-                    ))}
-                    {actions && (
-                      <View style={[styles.dataCell, { width: 120 }]}>
-                        {actions(item)}
-                      </View>
+                    {col.render ? (
+                      col.render(item)
+                    ) : (
+                      <Text style={styles.cellText} numberOfLines={1}>
+                        {String((item as any)[col.key] ?? '—')}
+                      </Text>
                     )}
-                  </RowWrapper>
-                );
-              })}
-            </ScrollView>
-
+                  </View>
+                ))}
+                {actions && (
+                  <View style={[styles.dataCell, { width: actionsColumnWidth }]}>
+                    {actions(item)}
+                  </View>
+                )}
+              </RowWrapper>
+            );
+            })
           )}
         </View>
       </ScrollView>
 
       {/* Pagination */}
-      {enablePagination && totalPages > 1 && (
-
-        <View style={[styles.pagination, styles.tableCard, styles.paginationCard, { minWidth: Math.max(totalTableWidth, 400) }]}>
+      {paginate && totalPages > 1 && (
+        <View style={[styles.pagination, styles.tableCard, styles.paginationCard, { minWidth: tableMinWidth, width: fullWidth ? '100%' : undefined }]}>
           <Text style={styles.pageInfo}>
             {page * pageSize + 1}–{Math.min((page + 1) * pageSize, sortedData.length)} of{' '}
             {sortedData.length}
@@ -266,10 +265,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textTertiary,
   },
-  bodyScroll: {
-    width: '100%',
-  },
-
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',

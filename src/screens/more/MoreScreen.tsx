@@ -104,8 +104,7 @@ export const MoreScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   return (
-    <ScreenWrapper uniformLayout edges={['top']}>
-
+    <ScreenWrapper uniformLayout>
       <View style={styles.header}>
         <Text style={styles.title}>{t('more.title', 'More')}</Text>
         <Text style={styles.subtitle}>{t('more.subtitle', 'Quick access to all features')}</Text>

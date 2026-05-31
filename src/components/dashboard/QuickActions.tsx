@@ -29,18 +29,25 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     { label: t('dashboard.myEvents'), icon: 'megaphone-outline' as const, color: colors.success, onPress: onMyEvents },
   ];
 
-  const renderActionCard = (action: typeof actions[0], index: number) => (
+  const renderActionCard = (action: (typeof actions)[0], index: number) => (
     <TouchableOpacity
       key={index}
       style={[styles.card, isWeb && styles.webCard, isMobile && styles.mobileCard]}
       onPress={action.onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: action.color + '15' }]}>
-        <Ionicons name={action.icon} size={26} color={action.color} />
+      <View
+        style={[
+          styles.iconContainer,
+          isMobile && styles.iconContainerMobile,
+          { backgroundColor: action.color + '15' },
+        ]}
+      >
+        <Ionicons name={action.icon} size={isMobile ? 18 : 26} color={action.color} />
       </View>
-      <Text style={styles.label} numberOfLines={2}>{action.label}</Text>
-
+      <Text style={[styles.label, isMobile && styles.labelMobile]} numberOfLines={2}>
+        {action.label}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -52,23 +59,15 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     );
   }
 
-  return (
-    <View style={[styles.container, styles.mobileGrid]}>
-
-      {actions.map(renderActionCard)}
-    </View>
-  );
+  return <View style={styles.mobileRow}>{actions.map(renderActionCard)}</View>;
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mobileRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  mobileGrid: {
-
+    flexWrap: 'nowrap',
     justifyContent: 'space-between',
+    backgroundColor: 'transparent',
   },
   webContainer: {
     flexDirection: 'row',
@@ -93,8 +92,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   mobileCard: {
-    width: '48%',
-
+    flex: 1,
+    minWidth: 0,
+    width: undefined,
+    minHeight: 72,
+    marginHorizontal: 2,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.md,
   },
   iconContainer: {
     width: 52,
@@ -104,11 +109,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
-
+  iconContainerMobile: {
+    width: 32,
+    height: 32,
+    marginBottom: spacing.xs,
+  },
   label: {
     ...typography.captionMedium,
     color: colors.text,
     textAlign: 'center',
   },
-
+  labelMobile: {
+    fontSize: 9,
+    lineHeight: 12,
+  },
 });

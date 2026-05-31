@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, useWindowDimensions, View, Dimensions, Platform } from 'react-native';
-import { colors } from '../../theme';
-
+import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 type Props = {
   name?: string;
@@ -27,14 +25,12 @@ export const AppSplash: React.FC<Props> = ({ name = 'Brahmin Connect' }) => {
     return () => animation.stop();
   }, [scale]);
 
-
   return (
     <View style={styles.root}>
       <View style={styles.center}>
         <Animated.Image
           source={logoSource}
           style={[styles.logo, { width: logoWidth, height: logoHeight, transform: [{ scale }] }]}
-
           resizeMode="contain"
           accessibilityLabel={`${name} logo`}
         />
@@ -47,7 +43,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#f2f2f2',
-
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -56,6 +51,5 @@ const styles = StyleSheet.create({
   },
   logo: {
     borderRadius: 35,
-
   },
 });

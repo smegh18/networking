@@ -41,8 +41,6 @@ function buildMinimalAdminUser(uid: string, email: string): Omit<User, 'uid'> & 
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
     chapterId: '',
-    zoneId: '',
-
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: 'en',
@@ -90,7 +88,7 @@ const AdminLoginScreen: React.FC<Props> = ({ navigation }) => {
           setError(t('auth.notAdminAccount', 'This account is not an admin. Use the regular login.'));
           return;
         }
-        const user: User = { ...(data as unknown as User), uid };
+        const user: User = { ...(data as User), uid };
         setUser(user);
         return;
       }
@@ -119,7 +117,7 @@ const AdminLoginScreen: React.FC<Props> = ({ navigation }) => {
   }, [email, password, setUser, t]);
 
   return (
-    <ScreenWrapper padded={false}>
+    <ScreenWrapper padded={false} edges={['top', 'bottom']}>
       <Header
         title={t('auth.adminLogin', 'Admin Login')}
         onBack={() => navigation.goBack()}
@@ -169,6 +167,7 @@ const AdminLoginScreen: React.FC<Props> = ({ navigation }) => {
               fullWidth
               size="lg"
               icon="shield-checkmark-outline"
+              style={styles.loginButton}
             />
           </Card>
           <Text style={styles.hint}>
@@ -209,6 +208,11 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.error,
     marginBottom: spacing.md,
+  },
+  loginButton: {
+    minHeight: 56,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.lg,
   },
   hint: {
     ...typography.caption,

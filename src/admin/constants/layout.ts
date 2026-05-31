@@ -3,7 +3,7 @@
  */
 export const ADMIN_LAYOUT = {
   /** Max width of content area - aligns all screens width-wise */
-  maxContentWidth: 1400,
+  maxContentWidth: 1600,
   /** Horizontal padding for content */
   contentPadding: 32,
   /** Vertical padding for content */

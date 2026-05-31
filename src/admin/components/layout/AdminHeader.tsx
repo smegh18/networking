@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing, shadows } from '../../../theme';
+import { colors, typography, spacing, shadows, borderRadius } from '../../../theme';
 
 interface AdminHeaderProps {
   title: string;
@@ -34,8 +34,15 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         <Text style={styles.title}>{title}</Text>
       </View>
       <View style={styles.right}>
+        <View style={styles.headerLogoWrap}>
+          <Image
+            source={require('../../../../assets/logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+            accessibilityLabel="App logo"
+          />
+        </View>
         <View style={styles.adminBadge}>
-          <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
           <Text style={styles.adminBadgeText}>Admin</Text>
         </View>
       </View>
@@ -78,6 +85,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
     marginLeft: spacing.md,
+    gap: spacing.sm,
+  },
+  headerLogoWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryFaded,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerLogo: {
+    width: 26,
+    height: 26,
   },
   adminBadge: {
     flexDirection: 'row',
@@ -86,7 +107,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 20,
-    gap: spacing.xs,
   },
   adminBadgeText: {
     ...typography.captionMedium,
