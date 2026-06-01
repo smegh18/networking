@@ -162,7 +162,10 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       result = result.filter(
         (u) =>
           normalizeTextLower(u.name).includes(q) ||
-          normalizeTextLower(u.email).includes(q),
+          normalizeTextLower(u.email).includes(q) ||
+          normalizeTextLower(u.phone).includes(q) ||
+          normalizeTextLower(u.businessName || "").includes(q) ||
+          normalizeTextLower(u.businessCategory || "").includes(q),
       );
     }
 

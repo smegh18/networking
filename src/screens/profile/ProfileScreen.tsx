@@ -45,7 +45,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         asks={asks}
         visitorInvites={visitorInvites}
         businessEntries={businessEntries}
-        defaultTab="business"
+        defaultTab="activity"
         showManagePhotosAction
         onEditProfile={() => navigation.navigate('EditProfile')}
         onOpenSettings={() => navigation.navigate('Settings')}

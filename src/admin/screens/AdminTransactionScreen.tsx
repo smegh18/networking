@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,35 +9,70 @@ import { AdminDataTable } from '../components/ui/AdminDataTable';
 import { AdminTabFilter } from '../components/ui/AdminTabFilter';
 import { AdminStatusBadge } from '../components/ui/AdminStatusBadge';
 import { AdminModal } from '../components/ui/AdminModal';
-import { SearchBar } from '../../components/ui/SearchBar';
+import { AdminMultiSelectSearch, SearchSuggestion } from '../components/ui/AdminMultiSelectSearch';
 import { ADMIN_LAYOUT } from '../constants/layout';
 
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { useFirestoreListener } from '../hooks/useFirestoreListener';
-import { deleteBusinessTransaction } from '../services/adminFirestore';
+import { deleteBusinessTransaction, getAllUsersAdmin, getAllChapters } from '../services/adminFirestore';
 
 import type { AdminStackParamList } from '../types/admin';
-import type { Business } from '../../types';
+import type { Business, User, Chapter } from '../../types';
 import { normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<AdminStackParamList, 'AdminTransactions'>;
-
-/** Placeholder until live aggregates are wired from Firestore */
-const DUMMY_BUSINESS_STATS = {
-  totalBusiness: 12_500,
-  businessGiven: 7_200,
-  businessReceived: 5_300,
-} as const;
 
 const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isCompact = width < 900;
   
-  const { data: transactions, loading } = useFirestoreListener<Business>('business');
-  
-  const [search, setSearch] = useState('');
+  const { data: transactions, loading: transactionsLoading } = useFirestoreListener<Business>('business');
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allChapters, setAllChapters] = useState<Chapter[]>([]);
+  const [loadingExtra, setLoadingExtra] = useState(true);
+
+  const [selectedSearchItems, setSelectedSearchItems] = useState<SearchSuggestion[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [deleteModal, setDeleteModal] = useState<Business | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [u, c] = await Promise.all([getAllUsersAdmin(), getAllChapters()]);
+        setAllUsers(u);
+        setAllChapters(c);
+      } finally {
+        setLoadingExtra(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const searchSuggestions = useMemo(() => {
+    const suggestions: SearchSuggestion[] = [];
+    
+    // Unique Chapters
+    allChapters.forEach(c => {
+      suggestions.push({ key: c.id, label: c.name, type: 'chapter' });
+    });
+    
+    // Unique Cities and States from Users
+    const cities = new Set<string>();
+    const states = new Set<string>();
+    allUsers.forEach(u => {
+      if (u.location?.city) cities.add(u.location.city.trim());
+      if (u.location?.state) states.add(u.location.state.trim());
+    });
+    
+    Array.from(cities).sort().forEach(city => 
+      suggestions.push({ key: city, label: city, type: 'city' })
+    );
+    Array.from(states).sort().forEach(state => 
+      suggestions.push({ key: state, label: state, type: 'state' })
+    );
+    
+    return suggestions;
+  }, [allUsers, allChapters]);
 
   const filteredTransactions = useMemo(() => {
     let result = [...transactions].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -48,18 +83,51 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
       result = result.filter((t) => t.status === 'approved');
     }
 
-    if (search.trim()) {
-      const q = normalizeTextLower(search);
-      result = result.filter(
-        (t) =>
-          normalizeTextLower(t.givenByName).includes(q) ||
-          normalizeTextLower(t.givenToName).includes(q) ||
-          normalizeTextLower(t.chapterName || '').includes(q)
-      );
+    if (selectedSearchItems.length > 0) {
+      result = result.filter(t => {
+        const giver = allUsers.find(u => u.uid === t.givenById);
+        const receiver = allUsers.find(u => u.uid === t.givenToId);
+        
+        // Match if it satisfies at least one selected item
+        // OR: satisfied if it matches any of the selected filters
+        return selectedSearchItems.some(item => {
+          if (item.type === 'chapter') {
+            return t.chapterId === item.key || normalizeTextLower(t.chapterName || '') === normalizeTextLower(item.label);
+          }
+          if (item.type === 'city') {
+            const giverCity = normalizeTextLower(giver?.location?.city || '');
+            const receiverCity = normalizeTextLower(receiver?.location?.city || '');
+            const targetCity = normalizeTextLower(item.label);
+            return giverCity === targetCity || receiverCity === targetCity;
+          }
+          if (item.type === 'state') {
+            const giverState = normalizeTextLower(giver?.location?.state || '');
+            const receiverState = normalizeTextLower(receiver?.location?.state || '');
+            const targetState = normalizeTextLower(item.label);
+            return giverState === targetState || receiverState === targetState;
+          }
+          return false;
+        });
+      });
     }
 
     return result;
-  }, [transactions, activeTab, search]);
+  }, [transactions, activeTab, selectedSearchItems, allUsers]);
+
+  const stats = useMemo(() => {
+    // We only count approved transactions for the KPI cards
+    const approved = filteredTransactions.filter(t => t.status === 'approved');
+    
+    return {
+      total: approved.reduce((sum, t) => sum + (t.amount || 0), 0),
+      referral: approved
+        .filter(t => t.type === 'referral')
+        .reduce((sum, t) => sum + (t.amount || 0), 0),
+      direct: approved
+        .filter(t => t.type !== 'referral')
+        .reduce((sum, t) => sum + (t.amount || 0), 0),
+    };
+  }, [filteredTransactions]);
 
   const tabs = useMemo(
     () => [
@@ -180,21 +248,21 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.kpiRow}>
         <AdminKPICard
           title="Total Business"
-          value={formatAmount(DUMMY_BUSINESS_STATS.totalBusiness)}
+          value={formatAmount(stats.total)}
           icon="cash"
           iconColor={colors.primary}
           iconBg={colors.primaryFaded}
         />
         <AdminKPICard
           title="Business Given"
-          value={formatAmount(DUMMY_BUSINESS_STATS.businessGiven)}
+          value={formatAmount(stats.referral)}
           icon="arrow-up-circle"
           iconColor={colors.success}
           iconBg={colors.successLight}
         />
         <AdminKPICard
           title="Business Received"
-          value={formatAmount(DUMMY_BUSINESS_STATS.businessReceived)}
+          value={formatAmount(stats.direct)}
           icon="arrow-down-circle"
           iconColor={colors.accent}
           iconBg={colors.accentFaded}
@@ -203,10 +271,11 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={[styles.topBar, isCompact && styles.topBarCompact]}>
         <View style={styles.searchWrap}>
-          <SearchBar
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search by name or chapter..."
+          <AdminMultiSelectSearch
+            label="Filter Transactions"
+            selectedItems={selectedSearchItems}
+            onItemsChange={setSelectedSearchItems}
+            suggestions={searchSuggestions}
           />
         </View>
       </View>
@@ -221,7 +290,7 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
         columns={columns}
         data={filteredTransactions}
         keyExtractor={(item) => item.id}
-        loading={loading}
+        loading={transactionsLoading || loadingExtra}
         paginate={false}
         fullWidth
       />
@@ -253,6 +322,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: ADMIN_LAYOUT.sectionGap,
     gap: ADMIN_LAYOUT.elementGap,
+    zIndex: 10,
+    elevation: 10,
   },
   topBarCompact: {
     flexDirection: 'column',
@@ -260,6 +331,7 @@ const styles = StyleSheet.create({
   },
   searchWrap: {
     flex: 1,
+    zIndex: 10,
   },
   nameText: {
     ...typography.bodySmallMedium,

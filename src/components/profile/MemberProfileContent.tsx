@@ -235,32 +235,6 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
 
   const renderActivitySections = () => (
     <>
-      <Section title="Points Breakdown">
-        {pointsSummary && pointsSummary.breakdown.length > 0 ? (
-          <Card>
-            <View style={styles.pointsList}>
-              {pointsSummary.breakdown.map((item) => (
-                <View key={item.key} style={styles.pointsListRow}>
-                  <View style={styles.pointsListText}>
-                    <Text style={styles.pointsListTitle}>{item.label}</Text>
-                    <Text style={styles.pointsListMeta}>
-                      {item.count} x {formatSignedPoints(item.pointsPerItem)}
-                    </Text>
-                  </View>
-                  <Text style={styles.pointsListValue}>
-                    {formatSignedPoints(item.totalPoints)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        ) : (
-          <Card>
-            <Text style={styles.activityEmpty}>No points awarded yet.</Text>
-          </Card>
-        )}
-      </Section>
-
       <Section title={t('profile.memberActivity', 'Member Activity')}>
         {activityItems.length === 0 ? (
           <Card>
@@ -314,6 +288,32 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
               </Card>
             ))}
           </View>
+        )}
+      </Section>
+
+      <Section title="Points Breakdown">
+        {pointsSummary && pointsSummary.breakdown.length > 0 ? (
+          <Card>
+            <View style={styles.pointsList}>
+              {pointsSummary.breakdown.map((item) => (
+                <View key={item.key} style={styles.pointsListRow}>
+                  <View style={styles.pointsListText}>
+                    <Text style={styles.pointsListTitle}>{item.label}</Text>
+                    <Text style={styles.pointsListMeta}>
+                      {item.count} x {formatSignedPoints(item.pointsPerItem)}
+                    </Text>
+                  </View>
+                  <Text style={styles.pointsListValue}>
+                    {formatSignedPoints(item.totalPoints)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : (
+          <Card>
+            <Text style={styles.activityEmpty}>No points awarded yet.</Text>
+          </Card>
         )}
       </Section>
     </>
@@ -448,21 +448,21 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
       {!isScrollLayout ? (
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'business' && styles.tabActive]}
-            onPress={() => setActiveTab('business')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === 'business' && styles.tabTextActive]}>
-              {t('profile.businessInfo', 'Business Information')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.tab, activeTab === 'activity' && styles.tabActive]}
             onPress={() => setActiveTab('activity')}
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, activeTab === 'activity' && styles.tabTextActive]}>
               {t('profile.memberActivity', 'Member Activity')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'business' && styles.tabActive]}
+            onPress={() => setActiveTab('business')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, activeTab === 'business' && styles.tabTextActive]}>
+              {t('profile.businessInfo', 'Business Information')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -152,6 +152,23 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'activity' ? (
           <View style={styles.activityContainer}>
+            <View style={styles.statsRow}>
+              <View style={[styles.card, styles.statCard]}>
+                <Text style={styles.statLabel}>Referrals Given</Text>
+                <Text style={styles.statValue}>{referrals.filter(r => r.giverId === userId).length}</Text>
+              </View>
+              <View style={[styles.card, styles.statCard]}>
+                <Text style={styles.statLabel}>Referrals Received</Text>
+                <Text style={styles.statValue}>{referrals.filter(r => r.receiverId === userId).length}</Text>
+              </View>
+              <View style={[styles.card, styles.statCard]}>
+                <Text style={styles.statLabel}>Meetings</Text>
+                <Text style={styles.statValue}>
+                  {meetings.filter(m => m.requesterId === userId || m.requesteeId === userId).length}
+                </Text>
+              </View>
+            </View>
+
             {/* Points Summary */}
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -173,23 +190,6 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
                     </Text>
                   </View>
                 ))}
-              </View>
-            </View>
-
-            <View style={styles.statsRow}>
-              <View style={[styles.card, styles.statCard]}>
-                <Text style={styles.statLabel}>Referrals Given</Text>
-                <Text style={styles.statValue}>{referrals.filter(r => r.giverId === userId).length}</Text>
-              </View>
-              <View style={[styles.card, styles.statCard]}>
-                <Text style={styles.statLabel}>Referrals Received</Text>
-                <Text style={styles.statValue}>{referrals.filter(r => r.receiverId === userId).length}</Text>
-              </View>
-              <View style={[styles.card, styles.statCard]}>
-                <Text style={styles.statLabel}>Meetings</Text>
-                <Text style={styles.statValue}>
-                  {meetings.filter(m => m.requesterId === userId || m.requesteeId === userId).length}
-                </Text>
               </View>
             </View>
           </View>

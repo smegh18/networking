@@ -167,6 +167,7 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [meetingType, setMeetingType] = useState<'b2b' | 'one_on_one'>('one_on_one');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contactNumber, setContactNumber] = useState('');
 
@@ -307,7 +308,7 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           requesterName: currentUser?.name || '',
           requesteeId: selectedMember!.uid,
           requesteeName: selectedMember!.name,
-          type: 'one_on_one',
+          type: meetingType,
           status: 'pending',
           scheduledDate: selectedDate,
           scheduledTime: formatDisplayTime(selectedTime),
@@ -414,6 +415,32 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
             </ScrollView>
           )}
         </Section>
+
+        {/* Meeting Type Selector */}
+        {!isGiveReferralMode && (
+          <Section title={t('meetings.meetingType')}>
+            <View style={styles.typeSelector}>
+              <TouchableOpacity 
+                style={[styles.typeOption, meetingType === 'one_on_one' && styles.typeOptionActive]}
+                onPress={() => setMeetingType('one_on_one')}
+              >
+                <Ionicons name="person-outline" size={18} color={meetingType === 'one_on_one' ? '#fff' : colors.textSecondary} />
+                <Text style={[styles.typeOptionText, meetingType === 'one_on_one' && styles.typeOptionTextActive]}>
+                  {t('meetings.oneOnOne')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.typeOption, meetingType === 'b2b' && styles.typeOptionActive]}
+                onPress={() => setMeetingType('b2b')}
+              >
+                <Ionicons name="briefcase-outline" size={18} color={meetingType === 'b2b' ? '#fff' : colors.textSecondary} />
+                <Text style={[styles.typeOptionText, meetingType === 'b2b' && styles.typeOptionTextActive]}>
+                  {t('meetings.b2b')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Section>
+        )}
 
         {/* Contact number — only in give-referral mode (or show when member not selected so we can capture phone) */}
         {isGiveReferralMode && (
@@ -823,5 +850,34 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textAlign: 'center',
     paddingVertical: spacing['2xl'],
+  },
+
+  // ── Meeting Type ──
+  typeSelector: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  typeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    gap: spacing.xs,
+  },
+  typeOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  typeOptionText: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+  typeOptionTextActive: {
+    color: '#fff',
   },
 });

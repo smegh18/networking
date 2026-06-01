@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,10 +8,13 @@ import { Header } from '../../components/layout/Header';
 import { Card } from '../../components/ui/Card';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../stores/authStore';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
+import { updateRecord } from '../../services/firebase/realtimeDb';
 import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows } from '../../theme';
-import type { DashboardStackParamList, Meeting } from '../../types';
+import type { DashboardStackParamList, Meeting, User } from '../../types';
+import { openWhatsAppWithMessage } from '../../utils/helpers';
 
 type Props = StackScreenProps<DashboardStackParamList, 'Interactions'>;
 
@@ -31,8 +34,11 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isWideWeb = Platform.OS === 'web' && width > breakpoints.lg;
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  
   const currentUser = useAuthStore((s) => s.user);
   const { items: allMeetings, loading } = useRealtimeCollection<Meeting>('meetings');
+  const { items: allUsers } = useRealtimeCollection<User>('users', 'uid');
 
   const meetings = useMemo(
     () =>
@@ -49,12 +55,48 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
     return true;
   });
 
+  const handleUpdateStatus = async (meetingId: string, status: Meeting['status']) => {
+    try {
+      setProcessingId(meetingId);
+      await updateRecord(`meetings/${meetingId}`, { status, updatedAt: new Date().toISOString() } as any);
+    } catch (err) {
+      console.error('Failed to update meeting status:', err);
+      Alert.alert(t('common.error'), t('interactions.updateFailed', 'Failed to update meeting status.'));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleShareWhatsApp = (item: Meeting) => {
+    const isOutgoing = item.requesterId === currentUser?.uid;
+    const otherUserId = isOutgoing ? item.requesteeId : item.requesterId;
+    const otherUser = allUsers.find(u => u.uid === otherUserId);
+    
+    if (!otherUser?.phone) {
+      Alert.alert(t('common.error'), t('interactions.noPhone', 'Contact number not available for this user.'));
+      return;
+    }
+
+    const message = t('interactions.waShareMessage', {
+      defaultValue: `Hi ${otherUser.name}, I'd like to discuss our ${item.type === 'b2b' ? 'B2B' : '1-on-1'} meeting scheduled for ${formatDate(item.scheduledDate)} at ${item.scheduledTime}.`,
+      name: otherUser.name,
+      type: item.type === 'b2b' ? 'B2B' : '1-on-1',
+      date: formatDate(item.scheduledDate),
+      time: item.scheduledTime
+    });
+
+    Linking.openURL(openWhatsAppWithMessage(otherUser.phone, message));
+  };
+
   const numColumns = isWideWeb && width > breakpoints.xl ? 3 : isWideWeb ? 2 : 1;
 
   const renderMeeting = ({ item }: { item: Meeting }) => {
     const config = STATUS_CONFIG[item.status];
     const isOutgoing = item.requesterId === currentUser?.uid;
+    const isIncoming = item.requesteeId === currentUser?.uid;
     const otherPerson = isOutgoing ? item.requesteeName : item.requesterName;
+    const isPending = item.status === 'pending';
+    const isBusy = processingId === item.id;
 
     return (
       <View style={[isWideWeb && { flex: 1, maxWidth: `${100 / numColumns}%` as any, paddingHorizontal: spacing.sm }]}>
@@ -91,6 +133,36 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
           {item.notes ? (
             <Text style={styles.notes} numberOfLines={2}>{item.notes}</Text>
           ) : null}
+
+          <View style={styles.actionRow}>
+            {isIncoming && isPending && (
+              <>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.acceptButton]} 
+                  onPress={() => handleUpdateStatus(item.id, 'accepted')}
+                  disabled={isBusy}
+                >
+                  <Ionicons name="checkmark-outline" size={16} color="#fff" />
+                  <Text style={styles.acceptButtonText}>{t('common.accept', 'Accept')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.rejectButton]} 
+                  onPress={() => handleUpdateStatus(item.id, 'rejected')}
+                  disabled={isBusy}
+                >
+                  <Ionicons name="close-outline" size={16} color={colors.error} />
+                  <Text style={styles.rejectButtonText}>{t('common.reject', 'Reject')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.waButton]} 
+              onPress={() => handleShareWhatsApp(item)}
+            >
+              <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+              <Text style={styles.waButtonText}>{t('common.share', 'WhatsApp')}</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
       </View>
     );
@@ -266,5 +338,47 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+    flex: 1,
+    minWidth: 100,
+  },
+  acceptButton: {
+    backgroundColor: colors.success,
+  },
+  acceptButtonText: {
+    ...typography.captionSemiBold,
+    color: '#fff',
+  },
+  rejectButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  rejectButtonText: {
+    ...typography.captionSemiBold,
+    color: colors.error,
+  },
+  waButton: {
+    backgroundColor: '#25D36615',
+    borderWidth: 1,
+    borderColor: '#25D366',
+  },
+  waButtonText: {
+    ...typography.captionSemiBold,
+    color: '#128C7E',
   },
 });

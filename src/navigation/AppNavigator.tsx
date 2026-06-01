@@ -35,6 +35,26 @@ const linking = {
   ],
   config: {
     screens: {
+      Auth: {
+        path: 'auth',
+        screens: {
+          Welcome: 'welcome',
+          Login: 'login',
+          PhoneLogin: 'phone-login',
+          OTPVerification: 'verify',
+          Register: 'register',
+          AdminLogin: 'admin-login',
+        },
+      },
+      Admin: {
+        path: 'admin',
+        screens: {
+          AdminDashboard: 'dashboard',
+          AdminUsers: 'users',
+          AdminEvents: 'events',
+          AdminAds: 'ads',
+        },
+      },
       Main: {
         screens: {
           MainTabs: {
