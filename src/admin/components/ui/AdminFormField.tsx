@@ -59,6 +59,8 @@ interface AdminDropdownFieldProps {
   onSelect: (key: string) => void;
   placeholder?: string;
   error?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export const AdminDropdownField: React.FC<AdminDropdownFieldProps> = ({
@@ -68,9 +70,19 @@ export const AdminDropdownField: React.FC<AdminDropdownFieldProps> = ({
   onSelect,
   placeholder = 'Select...',
   error,
+  searchable = false,
+  searchPlaceholder = 'Search...',
 }) => {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
   const selectedLabel = options.find((o) => o.key === value)?.label || placeholder;
+  const filteredOptions = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((option) =>
+      `${option.label} ${option.key}`.toLowerCase().includes(query),
+    );
+  }, [options, search]);
 
   return (
     <View style={styles.container}>
@@ -91,18 +103,31 @@ export const AdminDropdownField: React.FC<AdminDropdownFieldProps> = ({
       </TouchableOpacity>
       {open && (
         <View style={styles.dropdown}>
+          {searchable ? (
+            <View style={styles.dropdownSearchWrap}>
+              <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+              <TextInput
+                style={styles.dropdownSearchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder={searchPlaceholder}
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+          ) : null}
           <ScrollView
             style={styles.dropdownScroll}
             nestedScrollEnabled
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
           >
-            {options.map((option) => (
+            {filteredOptions.map((option) => (
               <TouchableOpacity
                 key={option.key}
                 style={[styles.dropdownItem, value === option.key && styles.dropdownItemSelected]}
                 onPress={() => {
                   onSelect(option.key);
+                  setSearch('');
                   setOpen(false);
                 }}
                 activeOpacity={0.7}
@@ -117,6 +142,9 @@ export const AdminDropdownField: React.FC<AdminDropdownFieldProps> = ({
                 </Text>
               </TouchableOpacity>
             ))}
+            {filteredOptions.length === 0 ? (
+              <Text style={styles.dropdownEmptyText}>No options found</Text>
+            ) : null}
           </ScrollView>
         </View>
       )}
@@ -314,6 +342,26 @@ const styles = StyleSheet.create({
   },
   dropdownScroll: {
     maxHeight: 196,
+  },
+  dropdownSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    ...typography.bodySmall,
+    color: colors.text,
+    paddingVertical: spacing.sm + 2,
+  },
+  dropdownEmptyText: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+    padding: spacing.md,
+    textAlign: 'center',
   },
   dropdownItem: {
     paddingVertical: spacing.sm + 2,

@@ -11,6 +11,7 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_LENGTH = 6;
 
 const DEFAULT_COUNTRY_CODE = '+91';
+const DEFAULT_CHAPTER_ID = 'chapter001';
 
 function generateOtp() {
   const digits = '0123456789';
@@ -315,6 +316,7 @@ exports.syncMyAccount = functions.region('us-central1').https.onCall(async (_dat
       phone: authUser.phoneNumber ? getPhoneTail(authUser.phoneNumber) : '',
       name: authUser.displayName || '',
       profileComplete: false,
+      chapterId: DEFAULT_CHAPTER_ID,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -368,6 +370,7 @@ exports.onAuthUserCreated = functions.region('us-central1').auth.user().onCreate
     phone: user.phoneNumber ? getPhoneTail(user.phoneNumber) : '',
     name: user.displayName || '',
     profileComplete: false,
+    chapterId: DEFAULT_CHAPTER_ID,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -405,6 +408,10 @@ exports.onRtdbUserWrite = functions.region('us-central1').database.ref('/users/{
 
   const after = change.after.val() || {};
   const before = change.before.exists() ? (change.before.val() || {}) : {};
+
+  if (!String(after.chapterId || '').trim()) {
+    await change.after.ref.update({ chapterId: DEFAULT_CHAPTER_ID });
+  }
 
   // Notify admins when a user completes registration and requires approval.
   try {

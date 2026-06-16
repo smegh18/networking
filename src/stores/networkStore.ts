@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { User, Chapter } from '../types';
+import { getUserChapterId } from '../utils/chapter';
 import { normalizeStringArray, normalizeTextLower } from '../utils/helpers';
 
 interface NetworkFilters {
@@ -74,7 +75,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
     // Filter by chapter
     if (selectedChapter) {
-      filtered = filtered.filter((user) => user.chapterId === selectedChapter);
+      filtered = filtered.filter((user) => getUserChapterId(user.chapterId) === selectedChapter);
     }
 
     // Filter by location (city or state)

@@ -25,11 +25,12 @@ import { setPendingRegistration } from '../../services/onboarding/pendingRegistr
 import { TextInput } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../stores/authStore';
-import { useBusinessConfig } from '../../hooks/useRealtimeData';
+import { useBusinessConfig, useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { useDropdownMaxHeight, useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { borderRadius, colors, spacing, typography } from '../../theme';
-import type { AuthStackParamList, User } from '../../types';
+import type { AuthStackParamList, Chapter, User } from '../../types';
 import { AddressPrediction, fetchAddressDetails, fetchAddressPredictions } from '../../services/googlePlaces';
+import { DEFAULT_CHAPTER_ID, DEFAULT_CHAPTER_NAME, getUserChapterId } from '../../utils/chapter';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
 type RegisterNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
@@ -50,6 +51,7 @@ type FormErrors = {
   phone?: string;
   whatsAppNumber?: string;
   businessAddress?: string;
+  chapterId?: string;
   city?: string;
   state?: string;
   pinCode?: string;
@@ -89,6 +91,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const { t } = useTranslation();
   const setNewUser = useAuthStore((s) => s.setNewUser);
   const { config: businessConfig } = useBusinessConfig();
+  const { items: chapters } = useRealtimeCollection<Chapter>('chapters');
   const initialEmail = normalizeEmail(route.params?.email ?? getCurrentUser()?.email ?? '');
   const initialPhone = (route.params?.phone ?? getCurrentUser()?.phoneNumber ?? '').replace(/\D/g, '').slice(-10);
 
@@ -117,6 +120,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [businessCity, setBusinessCity] = useState('');
   const [businessState, setBusinessState] = useState('');
   const [businessPinCode, setBusinessPinCode] = useState('');
+  const [chapterId, setChapterId] = useState('');
+  const [chapterSearch, setChapterSearch] = useState('');
+  const [chapterDropdownOpen, setChapterDropdownOpen] = useState(false);
   const [businessPlaceId, setBusinessPlaceId] = useState('');
   const [businessLatitude, setBusinessLatitude] = useState<number | undefined>();
   const [businessLongitude, setBusinessLongitude] = useState<number | undefined>();
@@ -221,6 +227,32 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const normalizedCategorySearch = normalizeTag(categorySearch);
   const canCreateCategory = !!normalizedCategorySearch
     && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
+  const chapterOptions = useMemo<Chapter[]>(
+    () =>
+      chapters.length > 0
+        ? chapters
+        : [{
+            id: DEFAULT_CHAPTER_ID,
+            name: DEFAULT_CHAPTER_NAME,
+            location: { city: '', state: '' },
+            memberCount: 0,
+            createdAt: '',
+          }],
+    [chapters],
+  );
+  const filteredChapters = useMemo(() => {
+    const queryText = normalizeTextLower(chapterSearch);
+    if (!queryText || chapterId) return chapterOptions;
+    return chapterOptions.filter((chapter) => {
+      const haystack = [
+        chapter.name,
+        chapter.id,
+        chapter.location?.city,
+        chapter.location?.state,
+      ].filter(Boolean).join(' ');
+      return normalizeTextLower(haystack).includes(queryText);
+    });
+  }, [chapterId, chapterOptions, chapterSearch]);
 
   const clearError = (field: keyof FormErrors) => {
     if (!errors[field]) return;
@@ -334,6 +366,19 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     setCategoryDropdownOpen(false);
   };
 
+  const handleSelectChapter = (chapter: Chapter) => {
+    setChapterId(chapter.id);
+    setChapterSearch(chapter.name);
+    setChapterDropdownOpen(false);
+    clearError('chapterId');
+  };
+
+  const handleClearChapter = () => {
+    setChapterId('');
+    setChapterSearch('');
+    setChapterDropdownOpen(false);
+  };
+
   const handleSelectAddressPrediction = async (prediction: AddressPrediction) => {
     setIsSelectingAddress(true);
     setIsAddressDropdownOpen(false);
@@ -408,6 +453,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     }
 
     if (stepIndex === 3) {
+      if (!chapterId.trim()) {
+        nextErrors.chapterId = t('register.chapterRequired', 'Chapter is required');
+      }
       if (!businessAddress.trim()) {
         nextErrors.businessAddress = t('register.addressRequired', 'Business address is required');
       }
@@ -542,7 +590,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           linkedin: linkedIn.trim(),
           google: googleBusinessProfile.trim(),
         },
-        chapterId: '',
+        chapterId: getUserChapterId(chapterId),
         location: {
           city: businessCity.trim(),
           state: businessState.trim(),
@@ -861,6 +909,77 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     return (
       <>
         <Text style={styles.sectionTitle}>{t('register.addressLinks', 'Address & Links')}</Text>
+        <Text style={styles.inputLabel}>{t('register.chapter', 'Chapter')}</Text>
+        <View style={styles.dropdownWrapper}>
+          <View
+            style={[
+              styles.dropdownInputRow,
+              chapterDropdownOpen && styles.dropdownInputRowFocused,
+              errors.chapterId && styles.dropdownInputRowError,
+            ]}
+          >
+            <Ionicons name="people-outline" size={18} color={colors.textTertiary} />
+            <RNTextInput
+              style={styles.dropdownSearchInput}
+              value={chapterId ? chapterSearch : chapterSearch}
+              onChangeText={(text) => {
+                setChapterId('');
+                setChapterSearch(text);
+                setChapterDropdownOpen(true);
+                clearError('chapterId');
+              }}
+              onFocus={() => setChapterDropdownOpen(true)}
+              onBlur={() => {
+                setTimeout(() => setChapterDropdownOpen(false), Platform.OS === 'android' ? 300 : 180);
+              }}
+              placeholder={t('register.chapterPlaceholder', 'Search and select your chapter')}
+              placeholderTextColor={colors.textTertiary}
+            />
+            {chapterId ? (
+              <TouchableOpacity onPress={handleClearChapter}>
+                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : (
+              <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+            )}
+          </View>
+
+          {chapterDropdownOpen ? (
+            <ScrollView
+              style={[styles.dropdownList, { maxHeight: dropdownMaxHeight }]}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+            >
+              {filteredChapters.length > 0 ? (
+                filteredChapters.map((chapter) => (
+                  <TouchableOpacity
+                    key={chapter.id}
+                    style={styles.dropdownItem}
+                    onPress={() => handleSelectChapter(chapter)}
+                  >
+                    <View style={styles.chapterOptionTextWrap}>
+                      <Text style={styles.dropdownItemText}>{chapter.name}</Text>
+                      {[chapter.location?.city, chapter.location?.state].filter(Boolean).length > 0 ? (
+                        <Text style={styles.chapterOptionMeta}>
+                          {[chapter.location?.city, chapter.location?.state].filter(Boolean).join(', ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {chapter.id === chapterId ? (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                    ) : null}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={styles.emptyDropdownText}>
+                  {t('register.noChaptersFound', 'No chapters found')}
+                </Text>
+              )}
+            </ScrollView>
+          ) : null}
+
+          {errors.chapterId ? <Text style={styles.errorText}>{errors.chapterId}</Text> : null}
+        </View>
         <View style={styles.addressAutocompleteWrap}>
           <TextInput
             label={t('register.businessAddress', 'Business Address')}
@@ -1259,6 +1378,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     marginRight: spacing.md,
+  },
+  chapterOptionTextWrap: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  chapterOptionMeta: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
   errorText: {
     ...typography.caption,

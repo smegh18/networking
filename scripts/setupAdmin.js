@@ -127,7 +127,7 @@ function buildMinimalAdminUser(uid, email, role) {
     businessTags: [],
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
-    chapterId: '',
+    chapterId: 'chapter001',
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: 'en',

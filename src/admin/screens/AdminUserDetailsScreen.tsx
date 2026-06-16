@@ -21,11 +21,13 @@ import {
   getAllMeetingsAdmin, 
   getAllAsks, 
   getAllVisitorInvitesAdmin, 
-  getAllBusinessTransactions 
+  getAllBusinessTransactions,
+  getAllChapters,
 } from '../services/adminFirestore';
 import { buildMemberPointsSummary } from '../../utils/memberPoints';
+import { getChapterName } from '../../utils/chapter';
 import type { AdminStackParamList } from '../types/admin';
-import type { User, Event, Meeting, Referral, Ask, VisitorInvite, Business } from '../../types';
+import type { User, Event, Meeting, Referral, Ask, VisitorInvite, Business, Chapter } from '../../types';
 
 type Props = StackScreenProps<AdminStackParamList, 'AdminUserDetails'>;
 
@@ -41,6 +43,7 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [asks, setAsks] = useState<Ask[]>([]);
   const [visitorInvites, setVisitorInvites] = useState<VisitorInvite[]>([]);
   const [business, setBusiness] = useState<Business[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
 
   useEffect(() => {
     loadData();
@@ -49,7 +52,7 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [u, ev, me, re, as, vi, bu] = await Promise.all([
+      const [u, ev, me, re, as, vi, bu, ch] = await Promise.all([
         getUserAdmin(userId),
         getAllEventsAdmin(),
         getAllMeetingsAdmin(),
@@ -57,6 +60,7 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         getAllAsks(),
         getAllVisitorInvitesAdmin(),
         getAllBusinessTransactions(),
+        getAllChapters(),
       ]);
 
       setUser(u);
@@ -66,6 +70,7 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       setAsks(as);
       setVisitorInvites(vi);
       setBusiness(bu);
+      setChapters(ch);
     } catch (err) {
       console.error(err);
     } finally {
@@ -200,7 +205,7 @@ const AdminUserDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.infoGrid}>
                 <InfoItem label="Email" value={user.email} />
                 <InfoItem label="Phone" value={user.phone} />
-                <InfoItem label="Chapter" value={user.chapterId || 'N/A'} />
+                <InfoItem label="Chapter" value={getChapterName(user.chapterId, chapters)} />
                 <InfoItem label="Location" value={`${user.location?.city}, ${user.location?.state}`} />
               </View>
               

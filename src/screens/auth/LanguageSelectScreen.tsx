@@ -23,6 +23,7 @@ import { LANGUAGES } from '../../utils/constants';
 import { changeLanguage } from '../../i18n';
 import { useAuthStore } from '../../stores/authStore';
 import type { AuthStackParamList, User } from '../../types';
+import { DEFAULT_CHAPTER_ID } from '../../utils/chapter';
 
 type LanguageSelectNavigationProp = StackNavigationProp<AuthStackParamList, 'LanguageSelect'>;
 
@@ -63,7 +64,7 @@ const buildFallbackUser = (email: string, language: string): User => {
     businessTags: [],
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
-    chapterId: '',
+    chapterId: DEFAULT_CHAPTER_ID,
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: language as any,

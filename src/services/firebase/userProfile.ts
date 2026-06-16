@@ -2,6 +2,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { get, ref } from 'firebase/database';
 import { rtdb } from '../../../firebase.config';
 import type { User } from '../../types';
+import { getUserChapterId } from '../../utils/chapter';
 
 type UserRecord = Record<string, unknown>;
 
@@ -20,6 +21,7 @@ function toUser(uid: string, raw: UserRecord): User {
   return {
     ...(raw as unknown as User),
     uid,
+    chapterId: getUserChapterId(String(raw.chapterId ?? '')),
   };
 }
 

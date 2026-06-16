@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useBusinessConfig, useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, layout } from '../../theme';
 import type { NetworkStackParamList, User, Chapter } from '../../types';
+import { getUserChapterId } from '../../utils/chapter';
 import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<NetworkStackParamList, 'Network'>;
@@ -46,7 +47,7 @@ const NetworkScreen: React.FC<Props> = ({ navigation }) => {
           normalizeStringArray(user.businessTags).some((tag) => normalizeTextLower(tag).includes(q))
         );
       })
-      .filter((user) => (!selectedChapter || user.chapterId === selectedChapter))
+      .filter((user) => (!selectedChapter || getUserChapterId(user.chapterId) === selectedChapter))
       .filter((user) => (!selectedLocation || normalizeText(user.location?.city) === selectedLocation))
       .filter((user) => (!selectedCategory || normalizeText(user.businessCategory) === selectedCategory));
   }, [currentUser?.uid, searchQuery, selectedCategory, selectedChapter, selectedLocation, users]);

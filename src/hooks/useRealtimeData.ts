@@ -7,7 +7,9 @@ import {
   normalizeBusinessConfig,
   subscribeToCollection,
   subscribeToPath,
+  updateRecord,
 } from '../services/firebase/realtimeDb';
+import { DEFAULT_CHAPTER_ID, getUserChapterId } from '../utils/chapter';
 
 export function useRealtimeCollection<T>(path: string, idKey: string = 'id') {
   const [items, setItems] = useState<T[]>([]);
@@ -100,11 +102,21 @@ export function useCurrentUserRealtime() {
     const unsubscribe = subscribeToPath<unknown>(
       `users/${authUser.uid}`,
       (rawUser) => {
-        const user = rawUser && typeof rawUser === 'object'
-          ? ({ ...(rawUser as Record<string, unknown>), uid: authUser.uid } as User)
+        const rawRecord = rawUser && typeof rawUser === 'object'
+          ? rawUser as Record<string, unknown>
+          : null;
+        const user = rawRecord
+          ? ({
+              ...rawRecord,
+              uid: authUser.uid,
+              chapterId: getUserChapterId(String(rawRecord.chapterId ?? '')),
+            } as User)
           : null;
         if (user) {
           setUser(user);
+          if (!String(rawRecord?.chapterId ?? '').trim()) {
+            void updateRecord(`users/${authUser.uid}`, { chapterId: DEFAULT_CHAPTER_ID });
+          }
         }
         setLoading(false);
       },

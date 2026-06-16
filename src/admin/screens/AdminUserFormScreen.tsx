@@ -17,7 +17,8 @@ import {
 import { ADMIN_LAYOUT } from "../constants/layout";
 
 import { colors, typography, spacing, borderRadius } from "../../theme";
-import { useBusinessConfig } from "../../hooks/useRealtimeData";
+import { useBusinessConfig, useRealtimeCollection } from "../../hooks/useRealtimeData";
+import { DEFAULT_CHAPTER_ID, DEFAULT_CHAPTER_NAME, getUserChapterId } from "../../utils/chapter";
 
 import {
   getUserAdmin,
@@ -25,7 +26,7 @@ import {
   updateUserAdmin,
 } from "../services/adminFirestore";
 
-import type { AccessRole } from "../../types";
+import type { AccessRole, Chapter } from "../../types";
 import type { AdminStackParamList } from "../types/admin";
 
 type Props = StackScreenProps<AdminStackParamList, "AdminUserForm">;
@@ -47,11 +48,13 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [chapterId, setChapterId] = useState(getUserChapterId(""));
 
   const [role, setRole] = useState<AccessRole>("member");
   const [saving, setSaving] = useState(false);
 
   const { config: businessConfig } = useBusinessConfig();
+  const { items: chapters } = useRealtimeCollection<Chapter>("chapters");
 
   useEffect(() => {
     if (isEdit && userId) loadUser(userId);
@@ -70,6 +73,7 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
         setSelectedTags(user.businessTags || []);
         setCity(user.location?.city || "");
         setState(user.location?.state || "");
+        setChapterId(getUserChapterId(user.chapterId));
         setRole((user.role as AccessRole) || "member");
       }
     } catch {
@@ -101,6 +105,15 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
     []
   );
 
+  const chapterOptions = useMemo(
+    () => (
+      chapters.length > 0
+        ? chapters.map((chapter) => ({ key: chapter.id, label: chapter.name }))
+        : [{ key: DEFAULT_CHAPTER_ID, label: DEFAULT_CHAPTER_NAME }]
+    ),
+    [chapters],
+  );
+
   const availableTags = useMemo(
     () =>
       businessConfig.tagsByCategory?.[businessCategory] ??
@@ -128,6 +141,7 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
           businessCategory,
           businessTags: selectedTags,
           location: { city, state },
+          chapterId: getUserChapterId(chapterId),
           role,
         });
       } else {
@@ -150,7 +164,7 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
             whatsapp: phone,
             linkedin: "",
           },
-          chapterId: "",
+          chapterId: getUserChapterId(chapterId),
           location: { city, state },
           dateOfBirth: "",
           language: "en",
@@ -224,6 +238,21 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
               onSelect={(key) => setRole(key as AccessRole)}
             />
           </View>
+        </View>
+
+        <View style={[styles.row, isCompact && styles.rowCompact]}>
+          <View style={styles.fieldColumn}>
+            <AdminDropdownField
+              label="Chapter"
+              value={chapterId}
+              options={chapterOptions}
+              onSelect={setChapterId}
+              placeholder="Select chapter..."
+              searchable
+              searchPlaceholder="Search chapters..."
+            />
+          </View>
+          <View style={styles.fieldColumn} />
         </View>
 
         <View style={[styles.row, isCompact && styles.rowCompact]}>

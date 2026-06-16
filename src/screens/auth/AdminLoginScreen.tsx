@@ -20,6 +20,7 @@ import { Card } from '../../components/ui/Card';
 import { colors, typography, spacing, layout, shadows } from '../../theme';
 import { useAuthStore } from '../../stores/authStore';
 import type { AuthStackParamList, User } from '../../types';
+import { DEFAULT_CHAPTER_ID } from '../../utils/chapter';
 
 type Props = StackScreenProps<AuthStackParamList, 'AdminLogin'>;
 
@@ -40,7 +41,7 @@ function buildMinimalAdminUser(uid: string, email: string): Omit<User, 'uid'> & 
     businessTags: [],
     businessPhotos: [],
     socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
-    chapterId: '',
+    chapterId: DEFAULT_CHAPTER_ID,
     location: { city: '', state: '' },
     dateOfBirth: '',
     language: 'en',

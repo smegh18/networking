@@ -6,6 +6,7 @@ import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { MemberProfileContent } from '../../components/profile/MemberProfileContent';
 import { useAuthStore } from '../../stores/authStore';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
+import { getChapterName } from '../../utils/chapter';
 import { colors, typography, spacing } from '../../theme';
 import type { Ask, ProfileStackParamList, Chapter, Event, Meeting, Referral, VisitorInvite, Business } from '../../types';
 
@@ -22,7 +23,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { items: visitorInvites } = useRealtimeCollection<VisitorInvite>('visitorInvites');
   const { items: businessEntries } = useRealtimeCollection<Business>('business');
   const chapterName = useMemo(
-    () => (user?.chapterId ? chapters.find((c) => c.id === user.chapterId)?.name : undefined),
+    () => (user ? getChapterName(user.chapterId, chapters) : undefined),
     [user?.chapterId, chapters],
   );
 

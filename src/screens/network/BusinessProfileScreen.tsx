@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
+import { getChapterName } from '../../utils/chapter';
 import { openWhatsApp } from '../../utils/helpers';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import type { NetworkStackParamList, User, Chapter } from '../../types';
@@ -26,7 +27,7 @@ const BusinessProfileScreen: React.FC<Props> = ({ navigation, route }) => {
   const { items: chapters } = useRealtimeCollection<Chapter>('chapters');
   const user = useMemo(() => users.find((item) => item.uid === userId) ?? null, [userId, users]);
   const chapterName = useMemo(
-    () => (user?.chapterId ? chapters.find((c) => c.id === user.chapterId)?.name : undefined),
+    () => (user ? getChapterName(user.chapterId, chapters) : undefined),
     [user?.chapterId, chapters],
   );
 

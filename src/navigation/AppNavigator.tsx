@@ -13,6 +13,7 @@ import { useAuthStore } from '../stores/authStore';
 import { usePendingRegistrationCleanup } from '../hooks/usePendingRegistrationCleanup';
 import { useCurrentUserRealtime } from '../hooks/useRealtimeData';
 import { signOut } from '../services/firebase/auth';
+import { DEFAULT_CHAPTER_ID } from '../utils/chapter';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const navRef = createNavigationContainerRef<RootStackParamList>();
@@ -83,7 +84,7 @@ const DevModeSwitcher: React.FC = () => {
       businessTags: [],
       businessPhotos: [],
       socialLinks: { instagram: '', facebook: '', whatsapp: '', linkedin: '' },
-      chapterId: '',
+      chapterId: DEFAULT_CHAPTER_ID,
       location: { city: '', state: '' },
       dateOfBirth: '',
       language: 'en',

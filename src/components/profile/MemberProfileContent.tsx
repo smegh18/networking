@@ -331,6 +331,13 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
             </View>
           </View>
           <View style={styles.infoRow}>
+            <Ionicons name="people-outline" size={18} color={colors.textTertiary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>{t('profile.chapter', 'Chapter')}</Text>
+              <Text style={styles.infoValue}>{chapterName || '-'}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={18} color={colors.textTertiary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>{t('profile.location', 'Location')}</Text>

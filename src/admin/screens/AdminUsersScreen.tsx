@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -20,11 +20,11 @@ import { SearchBar } from "../../components/ui/SearchBar";
 import { MemberProfileContent } from "../../components/profile/MemberProfileContent";
 import { Button } from "../../components/ui/Button";
 import { ADMIN_LAYOUT } from "../constants/layout";
+import { useRealtimeCollection } from "../../hooks/useRealtimeData";
 
 import { colors, spacing, typography, borderRadius } from "../../theme";
 
 import {
-  getAllUsersAdmin,
   activateUser,
   deactivateUser,
   deleteUserDoc,
@@ -35,21 +35,26 @@ import {
   getAllAsks,
   getAllVisitorInvitesAdmin,
   getAllBusinessTransactions,
-  getAllChapters,
 } from "../services/adminFirestore";
 
 import type { AdminStackParamList } from "../types/admin";
 import type { User, Event, Meeting, Referral, Ask, VisitorInvite, Business, Chapter } from "../../types";
 import { normalizeTextLower } from "../../utils/helpers";
 import { normalizeAdminUserProfile } from "../utils/normalizeAdminUser";
+import { getChapterName } from "../../utils/chapter";
 
 type Props = StackScreenProps<AdminStackParamList, "AdminUsers">;
+
+function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
 
 const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isCompact = width < 900;
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items: liveUsers, loading: usersLoading } = useRealtimeCollection<User>("users", "uid");
+  const { items: chapters, loading: chaptersLoading } = useRealtimeCollection<Chapter>("chapters");
+  const { items: tableBusinessEntries, loading: businessLoading } = useRealtimeCollection<Business>("business");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [deleteModal, setDeleteModal] = useState<User | null>(null);
@@ -65,21 +70,15 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   const [asks, setAsks] = useState<Ask[]>([]);
   const [visitorInvites, setVisitorInvites] = useState<VisitorInvite[]>([]);
   const [businessEntries, setBusinessEntries] = useState<Business[]>([]);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllUsersAdmin();
-      setUsers(data);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const users = useMemo(
+    () =>
+      liveUsers
+        .map((user) => normalizeAdminUserProfile(user.uid, user))
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [liveUsers],
+  );
+  const loading = usersLoading || chaptersLoading || businessLoading;
 
   const loadUserDetails = async (userId: string, listFallback?: User) => {
     const listUser = listFallback ?? users.find((u) => u.uid === userId);
@@ -98,7 +97,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         as,
         vi,
         bu,
-        ch,
       ] = await Promise.all([
         getUserAdmin(userId).catch(() => null),
         getAllEventsAdmin().catch(() => [] as Event[]),
@@ -107,7 +105,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         getAllAsks().catch(() => [] as Ask[]),
         getAllVisitorInvitesAdmin().catch(() => [] as VisitorInvite[]),
         getAllBusinessTransactions().catch(() => [] as Business[]),
-        getAllChapters().catch(() => [] as Chapter[]),
       ]);
 
       const hasRemoteRecord = Boolean(remoteUser);
@@ -124,7 +121,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       setAsks(Array.isArray(as) ? as : []);
       setVisitorInvites(Array.isArray(vi) ? vi : []);
       setBusinessEntries(Array.isArray(bu) ? bu : []);
-      setChapters(Array.isArray(ch) ? ch : []);
     } catch (err) {
       console.error(err);
       setSelectedUser(
@@ -137,19 +133,38 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       setAsks([]);
       setVisitorInvites([]);
       setBusinessEntries([]);
-      setChapters([]);
     } finally {
       setDetailLoading(false);
     }
   };
 
   const chapterName = useMemo(
-    () =>
-      selectedUser?.chapterId
-        ? chapters.find((c) => c.id === selectedUser.chapterId)?.name
-        : undefined,
+    () => (selectedUser ? getChapterName(selectedUser.chapterId, chapters) : undefined),
     [selectedUser?.chapterId, chapters],
   );
+
+  const businessTotalsByUser = useMemo(() => {
+    const totals: Record<string, { given: number; received: number }> = {};
+
+    tableBusinessEntries.forEach((entry) => {
+      if (entry.status && entry.status !== "approved") return;
+
+      const amount = Number(entry.amount) || 0;
+      if (!Number.isFinite(amount) || amount <= 0) return;
+
+      if (entry.givenById) {
+        totals[entry.givenById] = totals[entry.givenById] || { given: 0, received: 0 };
+        totals[entry.givenById].given += amount;
+      }
+
+      if (entry.givenToId) {
+        totals[entry.givenToId] = totals[entry.givenToId] || { given: 0, received: 0 };
+        totals[entry.givenToId].received += amount;
+      }
+    });
+
+    return totals;
+  }, [tableBusinessEntries]);
 
   const filteredUsers = useMemo(() => {
     let result = users;
@@ -162,12 +177,16 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       result = result.filter(
         (u) =>
           normalizeTextLower(u.name).includes(q) ||
-          normalizeTextLower(u.email).includes(q),
+          normalizeTextLower(u.email).includes(q) ||
+          normalizeTextLower(u.phone).includes(q) ||
+          normalizeTextLower(u.businessCategory).includes(q) ||
+          normalizeTextLower(u.businessName).includes(q) ||
+          normalizeTextLower(getChapterName(u.chapterId, chapters)).includes(q),
       );
     }
 
     return result;
-  }, [users, activeTab, search]);
+  }, [users, activeTab, search, chapters]);
 
   const tabs = useMemo(
     () => [
@@ -191,31 +210,81 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       {
         key: "name",
         label: "Name",
-        width: 280,
+        width: 240,
         render: (item: User) => (
-          <View>
+          <View style={styles.nameCell}>
             <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.email}>{item.email}</Text>
+            <AdminStatusBadge
+              label={item.isActive === false ? "Inactive" : "Active"}
+              color={item.isActive === false ? colors.error : colors.success}
+            />
           </View>
         ),
       },
-      { key: "businessName", label: "Business", width: 280 },
-      { key: "businessCategory", label: "Category", width: 200 },
       {
-        key: "isActive",
-        label: "Status",
-        width: 140,
+        key: "phone",
+        label: "Mobile number",
+        width: 170,
         render: (item: User) => (
-          <AdminStatusBadge
-            label={item.isActive === false ? "Inactive" : "Active"}
-            color={item.isActive === false ? colors.error : colors.success}
-          />
+          <Text style={styles.cellText} numberOfLines={1}>
+            {item.phone || "—"}
+          </Text>
+        ),
+      },
+      {
+        key: "businessCategory",
+        label: "Category",
+        width: 190,
+        render: (item: User) => (
+          <Text style={styles.cellText} numberOfLines={1}>
+            {item.businessCategory || "—"}
+          </Text>
+        ),
+      },
+      {
+        key: "businessName",
+        label: "Company",
+        width: 240,
+        render: (item: User) => (
+          <Text style={styles.cellText} numberOfLines={1}>
+            {item.businessName || "—"}
+          </Text>
+        ),
+      },
+      {
+        key: "chapterId",
+        label: "Chapter",
+        width: 220,
+        render: (item: User) => (
+          <Text style={styles.cellText} numberOfLines={1}>
+            {getChapterName(item.chapterId, chapters)}
+          </Text>
+        ),
+      },
+      {
+        key: "businessGiven",
+        label: "Business given",
+        width: 170,
+        render: (item: User) => (
+          <Text style={styles.amountText}>
+            {formatCurrency(businessTotalsByUser[item.uid]?.given || 0)}
+          </Text>
+        ),
+      },
+      {
+        key: "businessReceived",
+        label: "Business Received",
+        width: 190,
+        render: (item: User) => (
+          <Text style={styles.amountText}>
+            {formatCurrency(businessTotalsByUser[item.uid]?.received || 0)}
+          </Text>
         ),
       },
       {
         key: "actions",
         label: "Actions",
-        width: 200,
+        width: 180,
         render: (item: User) => (
           <View style={styles.actions}>
             <TouchableOpacity onPress={() => loadUserDetails(item.uid, item)}>
@@ -233,7 +302,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
                 } else {
                   await deactivateUser(item.uid);
                 }
-                loadUsers();
               }}
             >
               <Ionicons
@@ -249,7 +317,7 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         ),
       },
     ],
-    [navigation],
+    [businessTotalsByUser, chapters, navigation],
   );
 
   const handleDelete = async () => {
@@ -260,7 +328,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       setSelectedUserId(null);
       setSelectedUser(null);
     }
-    loadUsers();
   };
 
   const handleToggleActive = async () => {
@@ -275,7 +342,6 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
       normalizeAdminUserProfile(selectedUser.uid, updated ?? selectedUser),
     );
     setProfileIncomplete(!updated);
-    loadUsers();
   };
 
   const renderAdminToolbar = () => {
@@ -489,6 +555,18 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.bodySmallMedium,
+  },
+  nameCell: {
+    gap: spacing.xs,
+    alignItems: "flex-start",
+  },
+  cellText: {
+    ...typography.bodySmall,
+    color: colors.text,
+  },
+  amountText: {
+    ...typography.bodySmallMedium,
+    color: colors.text,
   },
   email: {
     ...typography.caption,

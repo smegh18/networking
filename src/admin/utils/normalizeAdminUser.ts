@@ -1,4 +1,5 @@
 import type { Language, User } from '../../types';
+import { getUserChapterId } from '../../utils/chapter';
 
 const EMPTY_SOCIAL_LINKS: User['socialLinks'] = {
   instagram: '',
@@ -39,7 +40,7 @@ export function normalizeAdminUserProfile(
       linkedin: social?.linkedin ?? '',
       google: social?.google ?? '',
     },
-    chapterId: source?.chapterId ?? '',
+    chapterId: getUserChapterId(source?.chapterId),
     location: {
       city: source?.location?.city ?? '',
       state: source?.location?.state ?? '',

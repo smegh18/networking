@@ -26,6 +26,7 @@ import type {
 } from '../../types';
 import type { AdminDashboardStats } from '../types/admin';
 import { APP_CONFIG_PATH, EMPTY_BUSINESS_CONFIG, normalizeBusinessConfig } from '../../services/firebase/realtimeDb';
+import { DEFAULT_CHAPTER_ID, getUserChapterId } from '../../utils/chapter';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
     promise,
     new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
   ]);
+}
+
+function normalizeUserChapter<T extends Partial<User>>(user: T): T {
+  return { ...user, chapterId: getUserChapterId(user.chapterId) };
+}
+
+async function backfillMissingUserChapters(users: User[]): Promise<void> {
+  const updates = users.reduce<Record<string, string>>((acc, user) => {
+    if (!String(user.chapterId ?? '').trim()) {
+      acc[`users/${user.uid}/chapterId`] = DEFAULT_CHAPTER_ID;
+    }
+    return acc;
+  }, {});
+  if (Object.keys(updates).length > 0) {
+    await update(ref(rtdb), updates);
+  }
 }
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
@@ -97,13 +114,19 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 
 export async function getAllUsersAdmin(): Promise<User[]> {
   const snap = await get(ref(rtdb, 'users'));
-  return snapToArray<User>(snap, 'uid');
+  const users = snapToArray<User>(snap, 'uid');
+  await backfillMissingUserChapters(users);
+  return users.map(normalizeUserChapter);
 }
 
 export async function getUserAdmin(uid: string): Promise<User | null> {
   const snap = await get(ref(rtdb, `users/${uid}`));
   if (!snap.exists()) return null;
-  return { uid, ...snap.val() } as User;
+  const user = normalizeUserChapter({ uid, ...snap.val() } as User);
+  if (!String((snap.val() as Partial<User>).chapterId ?? '').trim()) {
+    await update(ref(rtdb, `users/${uid}`), { chapterId: DEFAULT_CHAPTER_ID, updatedAt: toISO() });
+  }
+  return user;
 }
 
 export async function createUserAdmin(
