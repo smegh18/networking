@@ -306,7 +306,7 @@ export type DashboardStackParamList = {
   };
   ReferralStatus: undefined;
   AskDetail: { askId: string };
-  Interactions: undefined;
+  Interactions: { tab?: 'sent' | 'received' | 'completed' };
   InviteVisitor: undefined;
   BusinessGiven: undefined;
   AddBusiness: undefined;

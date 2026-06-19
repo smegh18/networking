@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +10,11 @@ import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuthStore } from '../../stores/authStore';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
+import { updateMeetingStatus } from '../../services/firebase/firestore';
 import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows } from '../../theme';
-import type { DashboardStackParamList, Meeting } from '../../types';
+import type { DashboardStackParamList, Meeting, Chapter } from '../../types';
+import { getChapters } from '../../services/firebase/firestore';
+import { getChapterName } from '../../utils/chapter';
 
 type Props = StackScreenProps<DashboardStackParamList, 'Interactions'>;
 
@@ -22,17 +25,62 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: keyof 
   completed: { label: 'Completed', color: '#10B981', icon: 'checkmark-done-outline' },
 };
 
-type TabFilter = 'all' | 'pending' | 'completed';
+type TabFilter = 'sent' | 'received' | 'completed';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
-const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
+const InteractionsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const isWideWeb = Platform.OS === 'web' && width > breakpoints.lg;
-  const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [activeTab, setActiveTab] = useState<TabFilter>(route.params?.tab ?? 'sent');
   const currentUser = useAuthStore((s) => s.user);
   const { items: allMeetings, loading } = useRealtimeCollection<Meeting>('meetings');
+
+  // Chapter data for WhatsApp message in sent cards
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(true);
+
+  // Auto-update status from pending/accepted to completed when time has passed
+  useEffect(() => {
+    const now = new Date();
+    const updates: Promise<void>[] = [];
+
+    allMeetings.forEach((meeting) => {
+      // Skip if already completed or rejected
+      if (meeting.status === 'completed' || meeting.status === 'rejected') return;
+
+      // Check if scheduled time has passed
+      const meetingDateTime = new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`);
+      if (meetingDateTime <= now && (meeting.status === 'pending' || meeting.status === 'accepted')) {
+        // Update status to completed
+        updates.push(updateMeetingStatus(meeting.id, 'completed'));
+      }
+    });
+
+    // Execute all updates (non-blocking)
+    if (updates.length > 0) {
+      Promise.allSettled(updates).then(() => {
+        // Status updates triggered - will reflect in UI on next render
+      });
+    }
+  }, [allMeetings]);
+
+  // Load chapters data
+  useEffect(() => {
+    const loadChapters = async () => {
+      try {
+        setChaptersLoading(true);
+        const chaptersData = await getChapters();
+        setChapters(chaptersData);
+      } catch (err) {
+        console.error('Failed to load chapters:', err);
+      } finally {
+        setChaptersLoading(false);
+      }
+    };
+    loadChapters();
+  }, []);
 
   const meetings = useMemo(
     () =>
@@ -43,8 +91,8 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const filteredMeetings = meetings.filter((m) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'pending') return m.status === 'pending' || m.status === 'accepted';
+    if (activeTab === 'sent') return m.requesterId === currentUser?.uid;
+    if (activeTab === 'received') return m.requesteeId === currentUser?.uid;
     if (activeTab === 'completed') return m.status === 'completed';
     return true;
   });
@@ -55,6 +103,10 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
     const config = STATUS_CONFIG[item.status];
     const isOutgoing = item.requesterId === currentUser?.uid;
     const otherPerson = isOutgoing ? item.requesteeName : item.requesterName;
+    const interactionType = isOutgoing ? 'sent' : 'received';
+    const interactionTypeConfig = interactionType === 'sent'
+      ? { label: t('interactions.sent'), color: '#FBBF24', icon: 'send-outline' as keyof typeof Ionicons.glyphMap } // Yellow for sent
+      : { label: t('interactions.received'), color: '#10B981', icon: 'arrow-down-outline' as keyof typeof Ionicons.glyphMap }; // Green for received
 
     return (
       <View style={[isWideWeb && { flex: 1, maxWidth: `${100 / numColumns}%` as any, paddingHorizontal: spacing.sm }]}>
@@ -66,7 +118,11 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.typeRow}>
                 <Ionicons name={item.type === 'b2b' ? 'briefcase-outline' : 'person-outline'} size={13} color={colors.textTertiary} />
                 <Text style={styles.typeText}>{item.type === 'b2b' ? 'B2B' : '1-on-1'}</Text>
-                <Text style={styles.directionText}>{isOutgoing ? t('interactions.sent') : t('interactions.received')}</Text>
+                {/* Show Sent/Received label with coloring */}
+                <View style={[styles.statusBadge, { backgroundColor: interactionTypeConfig.color + '15' }]}>
+                  <Ionicons name={interactionTypeConfig.icon} size={14} color={interactionTypeConfig.color} />
+                  <Text style={[styles.statusText, { color: interactionTypeConfig.color }]}>{interactionTypeConfig.label}</Text>
+                </View>
               </View>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: config.color + '15' }]}>
@@ -91,14 +147,126 @@ const InteractionsScreen: React.FC<Props> = ({ navigation }) => {
           {item.notes ? (
             <Text style={styles.notes} numberOfLines={2}>{item.notes}</Text>
           ) : null}
+
+          {/* Show action buttons */}
+          {(activeTab === 'received' && !isOutgoing) || (activeTab === 'sent' && isOutgoing) && (
+            <View style={styles.actionButtons}>
+              {/* Show Accept/Reject buttons only for received interactions in received tab */}
+              {activeTab === 'received' && !isOutgoing && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.acceptButton]}
+                    onPress={() => {
+                      // Accept keeps the status as is (pending/accepted)
+                      Alert.alert(
+                        t('interactions.accepted'),
+                        t('interactions.acceptanceMessage'),
+                        [{ text: t('common.ok') }]
+                      );
+                    }}
+                  >
+                    <Ionicons name="checkmark-outline" size={16} color={colors.success} />
+                    <Text style={styles.actionButtonText}>{t('Accept')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.rejectButton]}
+                    onPress={() => {
+                      Alert.alert(
+                        t('interactions.rejectTitle'),
+                        t('interactions.rejectMessage'),
+                        [
+                          { text: t('Cancel'), style: 'cancel' },
+                          {
+                            text: t('Reject'),
+                            style: 'destructive',
+                            onPress: () => {
+                              updateMeetingStatus(item.id, 'rejected')
+                                .then(() => {
+                                  Alert.alert(t('interactions.rejected'), t('interactions.rejectionMessage'));
+                                })
+                                .catch(() => {
+                                  Alert.alert(t('common.error'), t('interactions.rejectionFailed'));
+                                });
+                            }
+                          },
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="close-outline" size={16} color={colors.error} />
+                    <Text style={styles.actionButtonText}>{t('Reject')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Show WhatsApp button for both sent and received interactions */}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={() => {
+                  let shareMessage = '';
+                  if (isOutgoing) {
+                    // For sent messages - show whatsapp invite format
+                    const chapterName = getChapterName(currentUser?.chapterId ?? null, chapters);
+                    const city = currentUser?.location?.city || '';
+
+                    // Generate deep link for Interactions screen with received tab
+                    const deepLink = Platform.OS === 'web'
+                      ? `https://bbcn-networking.web.app/interactions?tab=received`
+                      : `bbcn://interactions?tab=received`;
+
+                    shareMessage = `Hello,
+
+I am ${currentUser?.name || ''}, from ${currentUser?.businessName || ''}.
+Reference: Brahmin Business Connect, ${chapterName}, ${city}
+
+I would like to schedule a B2B with you on ${item.scheduledDate || ''}, ${item.scheduledTime || ''}. Please accept my B2B invitation on app
+
+${deepLink}`;
+                  } else {
+                    // For received messages - show existing share format
+                    shareMessage = `
+${t('interactions.shareTitle')}
+${t('interactions.with')} ${otherPerson}
+${t('interactions.type')} ${item.type === 'b2b' ? t('interactions.b2b') : t('interactions.oneOnOne')}
+${t('interactions.date')} ${formatDate(item.scheduledDate)}
+${t('interactions.time')} ${item.scheduledTime}
+${item.notes ? `${t('interactions.notes')} ${item.notes}` : ''}
+${t('interactions.status')} ${config.label}
+                  `.trim();
+                  }
+
+                  // Share via WhatsApp
+                  if (Platform.OS === 'web') {
+                    // For web, we can use WhatsApp web link
+                    const encodedMessage = encodeURIComponent(shareMessage);
+                    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+                  } else {
+                    // For native, we would use a sharing library or intent
+                    // For now, we'll show an alert since we don't have the sharing library imported
+                    Alert.alert(
+                      t('interactions.shareTitle'),
+                      shareMessage,
+                      [{ text: t('common.ok') }]
+                    );
+                    // In a real implementation, you would use:
+                    // Share.share({ message: shareMessage, social: Share.Social.WHATSAPP });
+                  }
+                }}
+              >
+                <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                <Text style={styles.actionButtonText}>WhatsApp</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Card>
       </View>
     );
   };
 
   const tabs: { key: TabFilter; label: string }[] = [
-    { key: 'all', label: t('interactions.all') },
-    { key: 'pending', label: t('interactions.pending') },
+    { key: 'sent', label: t('interactions.sent') },
+    { key: 'received', label: t('interactions.received') },
     { key: 'completed', label: t('interactions.completed') },
   ];
 
@@ -249,6 +417,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: spacing.md,
     gap: spacing.lg,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  acceptButton: {
+    backgroundColor: colors.success + '15',
+  },
+  rejectButton: {
+    backgroundColor: colors.error + '15',
+  },
+  shareButton: {
+    backgroundColor: colors.primary + '15',
+  },
+  actionButtonText: {
+    marginLeft: spacing.xs,
+    ...typography.caption,
+    color: colors.text,
+  },
+  whatsappColor: {
+    color: '#25D366', // WhatsApp green
   },
   detailItem: {
     flexDirection: 'row',

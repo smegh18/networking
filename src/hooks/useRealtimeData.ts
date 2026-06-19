@@ -56,33 +56,39 @@ export function useBusinessConfig() {
   const { items: users } = useRealtimeCollection<User>('users', 'uid');
   const config = useMemo(() => {
     const normalized = normalizeBusinessConfig(value);
-    if (
-      normalized.businessCategories.length > 0
-      || normalized.popularTags.length > 0
-      || Object.keys(normalized.servicesByCategory).length > 0
-      || Object.keys(normalized.tagsByCategory || {}).length > 0
-    ) {
-      return normalized;
-    }
 
-    const categories = Array.from(
+    // Compute fallback from users
+    const fallbackCategories = Array.from(
       new Set(users.map((user) => (user.businessCategory || '').trim()).filter(Boolean)),
     );
-    const popularTags = Array.from(
+    const fallbackPopularTags = Array.from(
       new Set(users.flatMap((user) => user.businessTags || []).map((tag) => tag.trim()).filter(Boolean)),
     );
-    const servicesByCategory: Record<string, string[]> = {};
-    const tagsByCategory: Record<string, string[]> = {};
+    const fallbackServicesByCategory: Record<string, string[]> = {};
+    const fallbackTagsByCategory: Record<string, string[]> = {};
     users.forEach((user) => {
       const category = (user.businessCategory || '').trim();
       if (!category) return;
-      const existingServices = servicesByCategory[category] || [];
-      servicesByCategory[category] = Array.from(new Set([...existingServices, ...(user.services || [])]));
-      const existingTags = tagsByCategory[category] || [];
-      tagsByCategory[category] = Array.from(new Set([...existingTags, ...(user.businessTags || [])]));
+      const existingServices = fallbackServicesByCategory[category] || [];
+      fallbackServicesByCategory[category] = Array.from(new Set([...existingServices, ...(user.services || [])]));
+      const existingTags = fallbackTagsByCategory[category] || [];
+      fallbackTagsByCategory[category] = Array.from(new Set([...existingTags, ...(user.businessTags || [])]));
     });
+
+    // Merge: prefer database config if non-empty, else fallback
+    const businessCategories = normalized.businessCategories.length > 0 ? normalized.businessCategories : fallbackCategories;
+    const popularTags = normalized.popularTags.length > 0 ? normalized.popularTags : fallbackPopularTags;
+    const servicesByCategory =
+      Object.keys(normalized.servicesByCategory).length > 0
+        ? normalized.servicesByCategory
+        : fallbackServicesByCategory;
+    const tagsByCategory =
+      Object.keys(normalized.tagsByCategory || {}).length > 0
+        ? normalized.tagsByCategory
+        : fallbackTagsByCategory;
+
     return {
-      businessCategories: categories,
+      businessCategories,
       popularTags,
       servicesByCategory,
       tagsByCategory,

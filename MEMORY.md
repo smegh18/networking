@@ -1,0 +1,4 @@
+- [Interactions Screen WhatsApp Button for Sent Cards](src/screens/dashboard/InteractionsScreen.tsx)
+- [Schedule Meeting Screen WhatsApp Sharing with B2B Invitation Format](src/screens/dashboard/ScheduleMeetingScreen.tsx)
+- [Deep Linking Configuration for Interactions Screen with Tab Parameter](src/navigation/AppNavigator.tsx)
+- [Type Definitions for Interactions Screen Tab Parameter](src/types/index.ts)

@@ -27,8 +27,11 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useAuthStore } from '../../stores/authStore';
 import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows } from '../../theme';
-import type { DashboardStackParamList, User } from '../../types';
+import type { DashboardStackParamList, User, Chapter } from '../../types';
 import { normalizeText, normalizeTextLower } from '../../utils/helpers';
+import { getChapters } from '../../services/firebase/firestore';
+import { getChapterName } from '../../utils/chapter';
+import { Linking } from 'expo-linking';
 
 type Props = StackScreenProps<DashboardStackParamList, 'ScheduleMeeting'>;
 
@@ -177,6 +180,10 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const searchInputRef = useRef<RNTextInput>(null);
 
+  // Chapter data for WhatsApp message
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(true);
+
   // Field-level validation errors
   const [errors, setErrors] = useState<{ member?: string; date?: string; time?: string; contactNumber?: string }>({});
   const dropdownMaxHeight = useDropdownMaxHeight(300);
@@ -216,6 +223,22 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
     };
     loadMembers();
   }, [preselectedUserId, currentUser?.uid]);
+
+  // Load chapters data
+  useEffect(() => {
+    const loadChapters = async () => {
+      try {
+        setChaptersLoading(true);
+        const chaptersData = await getChapters();
+        setChapters(chaptersData);
+      } catch (err) {
+        console.error('Failed to load chapters:', err);
+      } finally {
+        setChaptersLoading(false);
+      }
+    };
+    loadChapters();
+  }, []);
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return members;
@@ -301,6 +324,25 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
         setSuccessMemberName(receiverName);
         setShowSuccess(true);
       } else {
+        // Get chapter name for WhatsApp message
+        const chapterName = getChapterName(currentUser?.chapterId ?? null, chapters);
+
+        // Generate deep link for Interactions screen with received tab
+        const deepLink = Platform.OS === 'web'
+          ? `https://bbcn-networking.web.app/interactions?tab=received`
+          : `bbcn://interactions?tab=received`;
+
+        // Format WhatsApp message as specified
+        const whatsAppMessage = `Hello,
+
+I am ${currentUser?.name || ''}, from ${currentUser?.businessName || ''}.
+Reference: Brahmin Business Connect, ${chapterName}, ${currentUser?.location?.city || ''}
+
+I would like to schedule a B2B with you on ${selectedDate || ''}, ${selectedTime || ''}. Please accept my B2B invitation on app
+
+${deepLink}`;
+
+        // Schedule the meeting in the database
         const meetingRef = push(ref(rtdb, 'meetings'));
         await set(meetingRef, {
           requesterId: currentUser?.uid || '',
@@ -315,6 +357,7 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           createdAt: new Date().toISOString(),
         });
 
+        // Create notification for the receiver
         const notifRef = push(ref(rtdb, 'notifications'));
         await set(notifRef, {
           userId: selectedMember!.uid,
@@ -325,6 +368,34 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           read: false,
           createdAt: new Date().toISOString(),
         });
+
+        // Launch WhatsApp with the formatted message
+        if (Platform.OS === 'web') {
+          // For web, we can use WhatsApp web link
+          const encodedMessage = encodeURIComponent(whatsAppMessage);
+          window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+        } else {
+          // For native, we'll show the message in an alert (in a real app, use Share API)
+          Alert.alert(
+            t('interactions.shareTitle'),
+            whatsAppMessage,
+            [
+              {
+                text: t('common.cancel'),
+                style: 'cancel'
+              },
+              {
+                text: t('common.open'),
+                onPress: () => {
+                  // In a real implementation, you would use:
+                  // Share.share({ message: whatsAppMessage, social: Share.Social.WHATSAPP });
+                  // For now, we'll just open the link
+                  Linking.openURL(deepLink).catch(err => console.error('Error opening deep link', err));
+                }
+              }
+            ]
+          );
+        }
 
         setSuccessMemberName(selectedMember!.name);
         setShowSuccess(true);

@@ -68,22 +68,22 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     [businessConfig.businessCategories],
   );
 
+  const servicesByCategory = useMemo(() => {
+    const raw = businessConfig.servicesByCategory;
+    return raw && typeof raw === 'object' ? raw : {};
+  }, [businessConfig.servicesByCategory]);
+
   const categoryOptions = useMemo(() => {
     const fromAsks = asks.map((ask) => normalizeText(ask.category)).filter(Boolean);
     const merged = Array.from(new Set([...businessCategories, ...fromAsks])).sort();
     return merged.map((cat) => ({ value: cat, label: cat }));
   }, [asks, businessCategories]);
 
-  const tagsByCategory = useMemo(() => {
-    const raw = businessConfig.tagsByCategory;
-    return raw && typeof raw === 'object' ? raw : {};
-  }, [businessConfig.tagsByCategory]);
-
   const subcategoryOptions = useMemo(() => {
     if (!selectedCategory) return [];
-    const raw = (tagsByCategory as Record<string, unknown>)[selectedCategory];
+    const raw = (servicesByCategory as Record<string, unknown>)[selectedCategory];
     return Array.from(new Set(normalizeStringArray(raw))).sort();
-  }, [selectedCategory, tagsByCategory]);
+  }, [selectedCategory, servicesByCategory]);
 
   const chapterOptions = useMemo(
     () =>
@@ -557,9 +557,9 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                         <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
                       )}
                     </View>
-                    {askSubcategoryDropdownOpen && (tagsByCategory as Record<string, string[]>)[askCategory]?.length ? (
+                    {askSubcategoryDropdownOpen && (servicesByCategory as Record<string, string[]>)[askCategory] ? (
                       <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                        {normalizeStringArray((tagsByCategory as Record<string, string[]>)[askCategory])
+                        {normalizeStringArray((servicesByCategory as Record<string, string[]>)[askCategory])
                           .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
                           .slice(0, 50)
                           .map((tag) => (

@@ -29,7 +29,6 @@ import { useBusinessConfig, useRealtimeCollection } from '../../hooks/useRealtim
 import { useDropdownMaxHeight, useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { borderRadius, colors, spacing, typography } from '../../theme';
 import type { AuthStackParamList, Chapter, User } from '../../types';
-import { AddressPrediction, fetchAddressDetails, fetchAddressPredictions } from '../../services/googlePlaces';
 import { DEFAULT_CHAPTER_ID, DEFAULT_CHAPTER_NAME, getUserChapterId } from '../../utils/chapter';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
 
@@ -123,13 +122,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [chapterId, setChapterId] = useState('');
   const [chapterSearch, setChapterSearch] = useState('');
   const [chapterDropdownOpen, setChapterDropdownOpen] = useState(false);
-  const [businessPlaceId, setBusinessPlaceId] = useState('');
-  const [businessLatitude, setBusinessLatitude] = useState<number | undefined>();
-  const [businessLongitude, setBusinessLongitude] = useState<number | undefined>();
-  const [addressPredictions, setAddressPredictions] = useState<AddressPrediction[]>([]);
-  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
-  const [isFetchingAddressPredictions, setIsFetchingAddressPredictions] = useState(false);
-  const [isSelectingAddress, setIsSelectingAddress] = useState(false);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [areasLoading, setAreasLoading] = useState(true);
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+  const [areaSearch, setAreaSearch] = useState('');
+  const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
   const [googleBusinessProfile, setGoogleBusinessProfile] = useState('');
   const [linkedIn, setLinkedIn] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,6 +145,44 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     const uid = getCurrentUser()?.uid;
     if (!uid) return;
     void setPendingRegistration(uid);
+  }, []);
+
+  // Load areas data (mock data for now - replace with real service call)
+  useEffect(() => {
+    const loadAreas = async () => {
+      try {
+        setAreasLoading(true);
+        // Mock data - in a real app, this would come from a service
+        const mockAreas = [
+          { id: 'area001', name: 'Connaught Place' },
+          { id: 'area002', name: 'Karol Bagh' },
+          { id: 'area003', name: 'Lajpat Nagar' },
+          { id: 'area004', name: 'Dwarka' },
+          { id: 'area005', name: 'Rohini' },
+          { id: 'area006', name: 'Pitampura' },
+          { id: 'area007', name: 'Janakpuri' },
+          { id: 'area008', name: 'Vasant Kunj' },
+          { id: 'area009', name: 'Saket' },
+          { id: 'area010', name: 'Greater Kailash' },
+          { id: 'area011', name: 'Defence Colony' },
+          { id: 'area012', name: 'Green Park' },
+          { id: 'area013', name: 'Hauz Khas' },
+          { id: 'area014', name: 'Malviya Nagar' },
+          { id: 'area015', name: 'Nehru Place' },
+          { id: 'area016', name: 'Lodi Colony' },
+          { id: 'area017', name: 'Khan Market' },
+          { id: 'area018', name: 'Ctrl' },
+          { id: 'area019', name: 'Gurgaon' },
+          { id: 'area020', name: 'Noida' }
+        ];
+        setAreas(mockAreas);
+      } catch (err) {
+        console.error('Failed to load areas:', err);
+      } finally {
+        setAreasLoading(false);
+      }
+    };
+    loadAreas();
   }, []);
 
   useEffect(() => {
@@ -183,39 +218,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     }, 150);
     return () => clearTimeout(t);
   }, [categoryDropdownOpen, currentStep]);
-
-  useEffect(() => {
-    if (currentStep !== 3) return;
-    const query = businessAddress.trim();
-    if (query.length < 3) {
-      setAddressPredictions([]);
-      setIsFetchingAddressPredictions(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsFetchingAddressPredictions(true);
-    const timeoutId = setTimeout(() => {
-      fetchAddressPredictions(query)
-        .then((predictions) => {
-          if (cancelled) return;
-          setAddressPredictions(predictions);
-          setIsAddressDropdownOpen(predictions.length > 0);
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setAddressPredictions([]);
-        })
-        .finally(() => {
-          if (!cancelled) setIsFetchingAddressPredictions(false);
-        });
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [businessAddress, currentStep]);
 
   const filteredCategories = useMemo(() => {
     const queryText = normalizeTextLower(categorySearch);
@@ -377,36 +379,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     setChapterId('');
     setChapterSearch('');
     setChapterDropdownOpen(false);
-  };
-
-  const handleSelectAddressPrediction = async (prediction: AddressPrediction) => {
-    setIsSelectingAddress(true);
-    setIsAddressDropdownOpen(false);
-    try {
-      const details = await fetchAddressDetails(prediction.placeId);
-      setBusinessAddress(details.formattedAddress || prediction.description);
-      setBusinessArea(details.area);
-      setBusinessCity(details.city);
-      setBusinessState(details.state);
-      setBusinessPinCode(details.pinCode);
-      setBusinessPlaceId(details.placeId);
-      setBusinessLatitude(details.latitude);
-      setBusinessLongitude(details.longitude);
-      setAddressPredictions([]);
-      setErrors((prev) => ({
-        ...prev,
-        businessAddress: undefined,
-        city: undefined,
-        state: undefined,
-        pinCode: undefined,
-      }));
-    } catch {
-      setBusinessAddress(prediction.description);
-      setBusinessPlaceId(prediction.placeId);
-      setAddressPredictions([]);
-    } finally {
-      setIsSelectingAddress(false);
-    }
   };
 
   const validateStep = (stepIndex: number): boolean => {
@@ -626,6 +598,128 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Lookup city and state from PIN code
+  const lookupCityStateFromPinCode = (pinCode: string): { city: string; state: string } | null => {
+    // Remove any non-digit characters and take first 6 digits
+    const cleanPinCode = pinCode.replace(/\D/g, '').slice(0, 6);
+
+    // If not a 6-digit PIN code, return null
+    if (cleanPinCode.length !== 6 || !/^\d{6}$/.test(cleanPinCode)) {
+      return null;
+    }
+
+    // Mock PIN code to city/state mapping (in a real app, this would come from a service)
+    const pinCodeMap: Record<string, { city: string; state: string }> = {
+      // Delhi
+      '110001': { city: 'New Delhi', state: 'Delhi' },
+      '110002': { city: 'New Delhi', state: 'Delhi' },
+      '110003': { city: 'New Delhi', state: 'Delhi' },
+      '110004': { city: 'New Delhi', state: 'Delhi' },
+      '110005': { city: 'New Delhi', state: 'Delhi' },
+      '110006': { city: 'New Delhi', state: 'Delhi' },
+      '110007': { city: 'New Delhi', state: 'Delhi' },
+      '110008': { city: 'New Delhi', state: 'Delhi' },
+      '110009': { city: 'New Delhi', state: 'Delhi' },
+      '110010': { city: 'New Delhi', state: 'Delhi' },
+      '110011': { city: 'Delhi', state: 'Delhi' },
+      '110012': { city: 'Delhi', state: 'Delhi' },
+      '110013': { city: 'Delhi', state: 'Delhi' },
+      '110014': { city: 'Delhi', state: 'Delhi' },
+      '110015': { city: 'Delhi', state: 'Delhi' },
+      '110016': { city: 'Delhi', state: 'Delhi' },
+      '110017': { city: 'Delhi', state: 'Delhi' },
+      '110018': { city: 'Delhi', state: 'Delhi' },
+      '110019': { city: 'Delhi', state: 'Delhi' },
+      '110020': { city: 'Delhi', state: 'Delhi' },
+
+      // Mumbai
+      '400001': { city: 'Mumbai', state: 'Maharashtra' },
+      '400002': { city: 'Mumbai', state: 'Maharashtra' },
+      '400003': { city: 'Mumbai', state: 'Maharashtra' },
+      '400004': { city: 'Mumbai', state: 'Maharashtra' },
+      '400005': { city: 'Mumbai', state: 'Maharashtra' },
+      '400006': { city: 'Mumbai', state: 'Maharashtra' },
+      '400007': { city: 'Mumbai', state: 'Maharashtra' },
+      '400008': { city: 'Mumbai', state: 'Maharashtra' },
+      '400009': { city: 'Mumbai', state: 'Maharashtra' },
+      '400010': { city: 'Mumbai', state: 'Maharashtra' },
+
+      // Bangalore
+      '560001': { city: 'Bangalore', state: 'Karnataka' },
+      '560002': { city: 'Bangalore', state: 'Karnataka' },
+      '560003': { city: 'Bangalore', state: 'Karnataka' },
+      '560004': { city: 'Bangalore', state: 'Karnataka' },
+      '560005': { city: 'Bangalore', state: 'Karnataka' },
+      '560006': { city: 'Bangalore', state: 'Karnataka' },
+      '560007': { city: 'Bangalore', state: 'Karnataka' },
+      '560008': { city: 'Bangalore', state: 'Karnataka' },
+      '560009': { city: 'Bangalore', state: 'Karnataka' },
+      '560010': { city: 'Bangalore', state: 'Karnataka' },
+
+      // Hyderabad
+      '500001': { city: 'Hyderabad', state: 'Telangana' },
+      '500002': { city: 'Hyderabad', state: 'Telangana' },
+      '500003': { city: 'Hyderabad', state: 'Telangana' },
+      '500004': { city: 'Hyderabad', state: 'Telangana' },
+      '500005': { city: 'Hyderabad', state: 'Telangana' },
+      '500006': { city: 'Hyderabad', state: 'Telangana' },
+      '500007': { city: 'Hyderabad', state: 'Telangana' },
+      '500008': { city: 'Hyderabad', state: 'Telangana' },
+      '500009': { city: 'Hyderabad', state: 'Telangana' },
+      '500010': { city: 'Hyderabad', state: 'Telangana' },
+
+      // Chennai
+      '600001': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600002': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600003': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600004': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600005': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600006': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600007': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600008': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600009': { city: 'Chennai', state: 'Tamil Nadu' },
+      '600010': { city: 'Chennai', state: 'Tamil Nadu' },
+
+      // Kolkata
+      '700001': { city: 'Kolkata', state: 'West Bengal' },
+      '700002': { city: 'Kolkata', state: 'West Bengal' },
+      '700003': { city: 'Kolkata', state: 'West Bengal' },
+      '700004': { city: 'Kolkata', state: 'West Bengal' },
+      '700005': { city: 'Kolkata', state: 'West Bengal' },
+      '700006': { city: 'Kolkata', state: 'West Bengal' },
+      '700007': { city: 'Kolkata', state: 'West Bengal' },
+      '700008': { city: 'Kolkata', state: 'West Bengal' },
+      '700009': { city: 'Kolkata', state: 'West Bengal' },
+      '700010': { city: 'Kolkata', state: 'West Bengal' },
+
+      // Pune
+      '411001': { city: 'Pune', state: 'Maharashtra' },
+      '411002': { city: 'Pune', state: 'Maharashtra' },
+      '411003': { city: 'Pune', state: 'Maharashtra' },
+      '411004': { city: 'Pune', state: 'Maharashtra' },
+      '411005': { city: 'Pune', state: 'Maharashtra' },
+      '411006': { city: 'Pune', state: 'Maharashtra' },
+      '411007': { city: 'Pune', state: 'Maharashtra' },
+      '411008': { city: 'Pune', state: 'Maharashtra' },
+      '411009': { city: 'Pune', state: 'Maharashtra' },
+      '411010': { city: 'Pune', state: 'Maharashtra' },
+
+      // Ahmedabad
+      '380001': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380002': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380003': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380004': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380005': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380006': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380007': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380008': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380009': { city: 'Ahmedabad', state: 'Gujarat' },
+      '380010': { city: 'Ahmedabad', state: 'Gujarat' },
+    };
+
+    return pinCodeMap[cleanPinCode] || null;
   };
 
   const renderStepContent = () => {
@@ -1035,6 +1129,31 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
           onChangeText={setBusinessArea}
           icon="map-outline"
         />
+        <TextInput
+          label={t('register.pinCode', 'PIN Code')}
+          placeholder={t('register.pinCodePlaceholder', '6-digit PIN code')}
+          value={businessPinCode}
+          onChangeText={(value) => {
+            const cleanedValue = value.replace(/\D/g, '').slice(0, 6);
+            setBusinessPinCode(cleanedValue);
+            clearError('pinCode');
+
+            // Auto-fill city and state from PIN code
+            if (cleanedValue.length === 6) {
+              const location = lookupCityStateFromPinCode(cleanedValue);
+              if (location) {
+                setBusinessCity(location.city);
+                setBusinessState(location.state);
+                clearError('city');
+                clearError('state');
+              }
+            }
+          }}
+          error={errors.pinCode}
+          icon="pin-outline"
+          keyboardType="number-pad"
+          maxLength={6}
+        />
         <View style={styles.addressGrid}>
           <TextInput
             label={t('register.city', 'City')}
@@ -1061,19 +1180,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             containerStyle={styles.addressGridItem}
           />
         </View>
-        <TextInput
-          label={t('register.pinCode', 'PIN Code')}
-          placeholder={t('register.pinCodePlaceholder', '6-digit PIN code')}
-          value={businessPinCode}
-          onChangeText={(value) => {
-            setBusinessPinCode(value.replace(/\D/g, '').slice(0, 6));
-            clearError('pinCode');
-          }}
-          error={errors.pinCode}
-          icon="pin-outline"
-          keyboardType="number-pad"
-          maxLength={6}
-        />
         <TextInput
           label={t('register.googleBusinessProfile', 'Google Business Profile')}
           placeholder={t('register.googleBusinessProfilePlaceholder', 'Google Business URL (optional)')}

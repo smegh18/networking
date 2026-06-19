@@ -36,20 +36,48 @@ const linking = {
   ],
   config: {
     screens: {
+      Auth: { path: 'auth' },
       Main: {
+        path: '',
         screens: {
           MainTabs: {
+            path: '',
             screens: {
               DashboardTab: {
+                path: '',
                 screens: {
                   Dashboard: '',
                   Events: 'events',
                   EventDetail: 'event/:eventId',
                   InviteVisitor: 'invite',
+                  Interactions: 'interactions',
                 },
               },
             },
           },
+        },
+      },
+      Admin: {
+        path: 'admin',
+        screens: {
+          AdminDashboard: { path: '' },
+          AdminUsers: { path: 'users' },
+          AdminUserDetails: { path: 'user/:userId' },
+          AdminRoles: { path: 'roles' },
+          AdminUserForm: { path: 'user-form' },
+          AdminChapters: { path: 'chapters' },
+          AdminEvents: { path: 'events' },
+          AdminEventAttendanceList: { path: 'event-attendance-list/:eventId' },
+          AdminEventForm: { path: 'event-form/:eventId?' },
+          AdminEventAttendance: { path: 'event-attendance/:eventId/:userId' },
+          AdminReferrals: { path: 'referrals' },
+          AdminTransactions: { path: 'transactions' },
+          AdminTransactionForm: { path: 'transaction-form/:transactionId?' },
+          AdminAds: { path: 'ads' },
+          AdminAdForm: { path: 'ad-form/:adId?' },
+          AdminAsks: { path: 'asks' },
+          AdminNotifications: { path: 'notifications' },
+          AdminBusinessConfig: { path: 'business-config' },
         },
       },
     },
