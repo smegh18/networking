@@ -13,7 +13,32 @@
           "package_name": "com.netconnect.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "327954628816-ghgeuplk3f10uqt0ktm9ahf475nh8j00.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.netconnect.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "327954628816-juu50n82kmnt2l6acae6dstu9sb8h65a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.netconnect.app",
+            "certificate_hash": "397dd156a59a3d9ae425f4ced0f5e774b4e9cce9"
+          }
+        },
+        {
+          "client_id": "327954628816-kossdo0071f9p3qi0rik03m60mnp44fp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.netconnect.app",
+            "certificate_hash": "008d15ac50773a3f199c651fbaf32c9cad3f4e95"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCxNFaTCTSktMFbFbF3jz_4n_QkGuLC9IA"
