@@ -56,4 +56,5 @@ export type AdminStackParamList = {
   AdminAsks: undefined;
   AdminNotifications: undefined;
   AdminBusinessConfig: undefined;
+  AdminCategoryRequests: undefined;
 };

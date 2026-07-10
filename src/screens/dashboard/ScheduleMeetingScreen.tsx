@@ -11,6 +11,7 @@ import {
   TextInput as RNTextInput,
   Modal,
   Animated,
+  Linking,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
@@ -28,10 +29,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { useDropdownMaxHeight } from '../../hooks/useKeyboardHeight';
 import { colors, typography, spacing, borderRadius, layout, breakpoints, shadows } from '../../theme';
 import type { DashboardStackParamList, User, Chapter } from '../../types';
-import { normalizeText, normalizeTextLower } from '../../utils/helpers';
-import { getChapters } from '../../services/firebase/firestore';
+import { normalizeText, normalizeTextLower, openWhatsAppWithMessage, shareToWhatsApp } from '../../utils/helpers';
+import { fetchCollection } from '../../services/firebase/realtimeDb';
 import { getChapterName } from '../../utils/chapter';
-import { Linking } from 'expo-linking';
+import { createAppNotification } from '../../utils/notifications';
 
 type Props = StackScreenProps<DashboardStackParamList, 'ScheduleMeeting'>;
 
@@ -229,7 +230,7 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
     const loadChapters = async () => {
       try {
         setChaptersLoading(true);
-        const chaptersData = await getChapters();
+        const chaptersData = await fetchCollection<Chapter>('chapters');
         setChapters(chaptersData);
       } catch (err) {
         console.error('Failed to load chapters:', err);
@@ -309,16 +310,20 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           amount: 0,
           createdAt: new Date().toISOString(),
         });
+        await createAppNotification({
+          userId: currentUser?.uid || '',
+          type: 'referral',
+          title: t('referrals.referralGivenTitle', 'Referral given'),
+          body: `${t('referrals.referralGivenMessage', 'You shared a referral for')} ${receiverName}.`,
+          data: { referralId: referralRef.key || '', askId },
+        });
         if (receiverId) {
-          const notifRef = push(ref(rtdb, 'notifications'));
-          await set(notifRef, {
+          await createAppNotification({
             userId: receiverId,
             type: 'referral',
             title: t('referrals.referralReceivedTitle', 'You received a referral'),
             body: `${currentUser?.name || 'Someone'} ${t('referrals.gaveYouReferral', 'gave you a referral')}`,
             data: { referralId: referralRef.key || '', askId },
-            read: false,
-            createdAt: new Date().toISOString(),
           });
         }
         setSuccessMemberName(receiverName);
@@ -332,15 +337,18 @@ const ScheduleMeetingScreen: React.FC<Props> = ({ navigation, route }) => {
           ? `https://bbcn-networking.web.app/interactions?tab=received`
           : `bbcn://interactions?tab=received`;
 
-        // Format WhatsApp message as specified
-        const whatsAppMessage = `Hello,
-
-I am ${currentUser?.name || ''}, from ${currentUser?.businessName || ''}.
-Reference: Brahmin Business Connect, ${chapterName}, ${currentUser?.location?.city || ''}
-
-I would like to schedule a B2B with you on ${selectedDate || ''}, ${selectedTime || ''}. Please accept my B2B invitation on app
-
-${deepLink}`;
+        // Format WhatsApp message in a readable, user-friendly way.
+        const recipientPhone = selectedMember?.phone ?? contactNumber.trim();
+        const shareMessage = [
+          `Hello ${selectedMember?.name || 'there'},`,
+          '',
+          `I am ${currentUser?.name || 'a member'} from ${currentUser?.businessName || 'my business'}.`,
+          `I would like to schedule a B2B meeting with you on ${formatDisplayDate(selectedDate)} at ${formatDisplayTime(selectedTime)}.`,
+          'Please let me know if this works for you.',
+          '',
+          `Reference: Brahmin Business Connect${chapterName ? ` • ${chapterName}` : ''}${currentUser?.location?.city ? ` • ${currentUser.location.city}` : ''}`,
+          `App link: ${deepLink}`,
+        ].join('\n');
 
         // Schedule the meeting in the database
         const meetingRef = push(ref(rtdb, 'meetings'));
@@ -357,43 +365,37 @@ ${deepLink}`;
           createdAt: new Date().toISOString(),
         });
 
-        // Create notification for the receiver
-        const notifRef = push(ref(rtdb, 'notifications'));
-        await set(notifRef, {
+        await createAppNotification({
+          userId: currentUser?.uid || '',
+          type: 'meeting',
+          title: t('meetings.meetingScheduledTitle', 'Meeting scheduled'),
+          body: `${t('meetings.meetingScheduledBody', 'You scheduled a meeting with')} ${selectedMember!.name}.`,
+          data: { meetingId: meetingRef.key || '' },
+        });
+        await createAppNotification({
           userId: selectedMember!.uid,
           type: 'meeting',
           title: t('meetings.newInviteTitle'),
           body: `${currentUser?.name || 'Someone'} ${t('meetings.invitedYou')} on ${formatDisplayDate(selectedDate)} at ${formatDisplayTime(selectedTime)}`,
           data: { meetingId: meetingRef.key || '' },
-          read: false,
-          createdAt: new Date().toISOString(),
         });
 
-        // Launch WhatsApp with the formatted message
-        if (Platform.OS === 'web') {
-          // For web, we can use WhatsApp web link
-          const encodedMessage = encodeURIComponent(whatsAppMessage);
-          window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-        } else {
-          // For native, we'll show the message in an alert (in a real app, use Share API)
+        // Open WhatsApp automatically with the prepared message.
+        try {
+          const shareUrl = recipientPhone
+            ? openWhatsAppWithMessage(recipientPhone, shareMessage)
+            : shareToWhatsApp(shareMessage);
+
+          if (Platform.OS === 'web') {
+            window.open(shareUrl, '_blank', 'noopener,noreferrer');
+          } else {
+            await Linking.openURL(shareUrl);
+          }
+        } catch (shareErr) {
+          console.error('Failed to open WhatsApp for meeting invite', shareErr);
           Alert.alert(
-            t('interactions.shareTitle'),
-            whatsAppMessage,
-            [
-              {
-                text: t('common.cancel'),
-                style: 'cancel'
-              },
-              {
-                text: t('common.open'),
-                onPress: () => {
-                  // In a real implementation, you would use:
-                  // Share.share({ message: whatsAppMessage, social: Share.Social.WHATSAPP });
-                  // For now, we'll just open the link
-                  Linking.openURL(deepLink).catch(err => console.error('Error opening deep link', err));
-                }
-              }
-            ]
+            t('common.error', 'Error'),
+            t('interactions.whatsappOpenFailed', 'Unable to open WhatsApp right now.'),
           );
         }
 

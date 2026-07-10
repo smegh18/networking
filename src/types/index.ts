@@ -119,6 +119,8 @@ export interface Event {
   attendanceRecords?: Record<string, EventCheckInRecord>;
   /** UIDs that have been marked present at the event. */
   checkedInUsers?: string[];
+  /** UIDs that have viewed this event. */
+  viewedBy?: string[];
   imageURL: string;
   createdAt: string;
   updatedAt?: string;
@@ -135,6 +137,8 @@ export interface Meeting {
   scheduledDate: string;
   scheduledTime: string;
   notes: string;
+  /** UIDs that have viewed this meeting. */
+  viewedBy?: string[];
   createdAt: string;
 }
 
@@ -150,6 +154,8 @@ export interface Referral {
   contactPhone: string;
   status: 'pending' | 'contacted' | 'completed' | 'lost';
   amount: number;
+  /** UIDs that have viewed this referral. */
+  viewedBy?: string[];
   createdAt: string;
 }
 
@@ -224,6 +230,18 @@ export interface Business {
   referredByName?: string;
   amount: number;
   createdAt: string;
+}
+
+export interface CategoryRequest {
+  id: string;
+  category: string;
+  requestedById: string;
+  requestedByName: string;
+  requestedByBusinessName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  updatedAt?: string;
+  adminResponse?: string;
 }
 
 export interface SearchResult {

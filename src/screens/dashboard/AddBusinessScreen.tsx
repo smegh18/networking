@@ -6,6 +6,7 @@ import {
     TextInput,
     TouchableOpacity,
     Alert,
+    Platform,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +16,9 @@ import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../stores/authStore';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { createCollectionItem } from '../../services/firebase/realtimeDb';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors, typography, spacing, borderRadius, layout, shadows } from '../../theme';
+import { createAppNotification } from '../../utils/notifications';
 import type { DashboardStackParamList, Business, BusinessType, Chapter, User } from '../../types';
 
 type Props = StackScreenProps<DashboardStackParamList, 'AddBusiness'>;
@@ -66,6 +69,7 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
     const [showReferredByResults, setShowReferredByResults] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const availableChapters = useMemo(
         () => chapters.filter((chapter) => isValidChapter(chapter)),
@@ -118,12 +122,12 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
             Alert.alert('Validation', 'Please select a chapter');
             return;
         }
-        if (!isSelectableMember(selectedUser, currentUser?.uid)) {
-            Alert.alert('Validation', 'Please select a person for "Business Received From"');
+        if (!isSelectableMember(selectedUser, currentUser?.uid) && !(businessType === 'referral' && userQuery.trim())) {
+            Alert.alert('Validation', 'Please select or enter a person for "Business Received From"');
             return;
         }
-        if (businessType === 'referral' && !isSelectableMember(selectedReferredBy, currentUser?.uid)) {
-            Alert.alert('Validation', 'Please select who referred this business');
+        if (businessType === 'referral' && !isSelectableMember(selectedReferredBy, currentUser?.uid) && !referredByQuery.trim()) {
+            Alert.alert('Validation', 'Please select or enter who referred this business');
             return;
         }
         const amountNum = parseFloat(amount);
@@ -139,17 +143,17 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
         setSubmitting(true);
         try {
             const chapter = selectedChapter as Chapter;
-            const selectedMember = selectedUser as User;
+            const selectedMember = selectedUser as User | null;
             const referrer = selectedReferredBy as User | null;
 
-            const chapterId = normalizeText(chapter.id);
-            const chapterName = normalizeText(chapter.name);
-            const givenById = normalizeText(selectedMember.uid);
-            const givenByName = normalizeText(selectedMember.name);
+            const chapterId = normalizeText(chapter?.id || '');
+            const chapterName = normalizeText(chapter?.name || '');
+            const givenById = normalizeText(selectedMember?.uid || '');
+            const givenByName = normalizeText(selectedMember?.name || userQuery.trim());
             const givenToId = normalizeText(currentUser.uid);
             const givenToName = normalizeText(currentUser.name);
-            const referredById = normalizeText(referrer?.uid);
-            const referredByName = normalizeText(referrer?.name);
+            const referredById = normalizeText(referrer?.uid || '');
+            const referredByName = normalizeText(referrer?.name || referredByQuery.trim());
 
             const businessEntry: Omit<Business, 'id'> = {
                 date,
@@ -163,13 +167,31 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                 givenByName,
                 givenToId,
                 givenToName,
-                ...(businessType === 'referral' && referredById && referredByName
+                ...(businessType === 'referral' && referredByName
                     ? { referredById, referredByName }
                     : {}),
                 amount: amountNum,
                 createdAt: new Date().toISOString(),
             };
             await createCollectionItem('business', businessEntry as unknown as Record<string, unknown>);
+            if (selectedMember?.uid) {
+                await createAppNotification({
+                    userId: selectedMember.uid,
+                    type: 'system',
+                    title: 'New business entry',
+                    body: `${currentUser.name} recorded a business entry for ${name.trim()}.`,
+                    data: { businessName: name.trim() },
+                });
+            }
+            await createAppNotification({
+                userId: currentUser.uid,
+                type: 'system',
+                title: businessType === 'referral' ? 'Referral recorded' : 'Business recorded',
+                body: businessType === 'referral'
+                    ? `You recorded a referral for ${name.trim()}.`
+                    : `You recorded a business entry for ${name.trim()}.`,
+                data: { businessName: name.trim() },
+            });
             navigation.navigate('BusinessGiven');
         } catch (error) {
             Alert.alert('Error', 'Failed to add business entry. Please try again.');
@@ -191,13 +213,30 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Date */}
                 <View style={styles.fieldGroup}>
                     <Text style={styles.label}>Date</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={colors.textTertiary}
-                    />
+                    <TouchableOpacity
+                        style={styles.inputRow}
+                        onPress={() => setShowDatePicker(true)}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[styles.inputText, !date && styles.placeholderText]}>
+                            {date || 'YYYY-MM-DD'}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                    {showDatePicker ? (
+                        <DateTimePicker
+                            value={date ? new Date(`${date}T00:00:00`) : new Date()}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(_, selectedDateValue) => {
+                                setShowDatePicker(false);
+                                if (selectedDateValue) {
+                                    const nextDate = selectedDateValue.toISOString().split('T')[0];
+                                    setDate(nextDate);
+                                }
+                            }}
+                        />
+                    ) : null}
                 </View>
 
                 {/* Name */}
@@ -210,61 +249,6 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                         placeholder="Enter business name or description"
                         placeholderTextColor={colors.textTertiary}
                     />
-                </View>
-
-                {/* Chapter - inline search */}
-                <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Chapter Name</Text>
-                    {selectedChapter ? (
-                        <View style={styles.selectedPill}>
-                            <Text style={styles.selectedPillText}>{normalizeText(selectedChapter.name)}</Text>
-                            <TouchableOpacity onPress={() => { setSelectedChapter(null); setChapterQuery(''); }}>
-                                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <>
-                            <View style={styles.searchInputRow}>
-                                <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
-                                <TextInput
-                                    style={styles.searchInputField}
-                                    value={chapterQuery}
-                                    onChangeText={(text) => {
-                                        setChapterQuery(text);
-                                        setShowChapterResults(true);
-                                    }}
-                                    onFocus={() => setShowChapterResults(true)}
-                                    placeholder="Search for a chapter..."
-                                    placeholderTextColor={colors.textTertiary}
-                                />
-                            </View>
-                            {showChapterResults && filteredChapters.length > 0 && (
-                                <View style={styles.dropdownList}>
-                                    {filteredChapters.map((chapter) => (
-                                        <TouchableOpacity
-                                            key={chapter.id}
-                                            style={styles.dropdownItem}
-                                            onPress={() => {
-                                                setSelectedChapter(chapter);
-                                                setChapterQuery(normalizeText(chapter.name));
-                                                setShowChapterResults(false);
-                                            }}
-                                        >
-                                            <Ionicons name="business-outline" size={16} color={colors.primary} />
-                                            <View style={styles.dropdownItemText}>
-                                                <Text style={styles.dropdownItemTitle}>{normalizeText(chapter.name)}</Text>
-                                                <Text style={styles.dropdownItemSub}>
-                                                    {chapter.location?.city
-                                                        ? `${chapter.location.city}, ${chapter.location.state || ''}`
-                                                        : ''}
-                                                </Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
-                        </>
-                    )}
                 </View>
 
                 {/* Type dropdown */}
@@ -321,58 +305,6 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                     )}
                 </View>
 
-                {/* Business Received From - inline user search */}
-                <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Business Received From</Text>
-                    {selectedUser ? (
-                        <View style={styles.selectedPill}>
-                            <Text style={styles.selectedPillText}>{normalizeText(selectedUser.name)}</Text>
-                            <Text style={styles.selectedPillSub}>{normalizeText(selectedUser.businessName)}</Text>
-                            <TouchableOpacity onPress={() => { setSelectedUser(null); setUserQuery(''); }}>
-                                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <>
-                            <View style={styles.searchInputRow}>
-                                <Ionicons name="person-outline" size={16} color={colors.textTertiary} />
-                                <TextInput
-                                    style={styles.searchInputField}
-                                    value={userQuery}
-                                    onChangeText={(text) => {
-                                        setUserQuery(text);
-                                        setShowUserResults(true);
-                                    }}
-                                    onFocus={() => setShowUserResults(true)}
-                                    placeholder="Search for a member..."
-                                    placeholderTextColor={colors.textTertiary}
-                                />
-                            </View>
-                            {showUserResults && filteredUsers.length > 0 && (
-                                <View style={styles.dropdownList}>
-                                    {filteredUsers.map((u) => (
-                                        <TouchableOpacity
-                                            key={u.uid}
-                                            style={styles.dropdownItem}
-                                            onPress={() => {
-                                                setSelectedUser(u);
-                                                setUserQuery(normalizeText(u.name));
-                                                setShowUserResults(false);
-                                            }}
-                                        >
-                                            <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
-                                            <View style={styles.dropdownItemText}>
-                                                <Text style={styles.dropdownItemTitle}>{normalizeText(u.name)}</Text>
-                                                <Text style={styles.dropdownItemSub}>{normalizeText(u.businessName)}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
-                        </>
-                    )}
-                </View>
-
                 {businessType === 'referral' ? (
                     <View style={styles.fieldGroup}>
                         <Text style={styles.label}>Referred By</Text>
@@ -394,9 +326,12 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                                         onChangeText={(text) => {
                                             setReferredByQuery(text);
                                             setShowReferredByResults(true);
+                                            if (selectedReferredBy && text !== normalizeText(selectedReferredBy.name)) {
+                                                setSelectedReferredBy(null);
+                                            }
                                         }}
                                         onFocus={() => setShowReferredByResults(true)}
-                                        placeholder="Search for a member..."
+                                        placeholder="Search or enter a member..."
                                         placeholderTextColor={colors.textTertiary}
                                     />
                                 </View>
@@ -425,6 +360,123 @@ const AddBusinessScreen: React.FC<Props> = ({ navigation }) => {
                         )}
                     </View>
                 ) : null}
+
+                {/* Business Received From - inline user search / manual entry allowed for referral */}
+                <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Business Received From</Text>
+                    {selectedUser ? (
+                        <View style={styles.selectedPill}>
+                            <Text style={styles.selectedPillText}>{normalizeText(selectedUser.name)}</Text>
+                            <Text style={styles.selectedPillSub}>{normalizeText(selectedUser.businessName)}</Text>
+                            <TouchableOpacity onPress={() => { setSelectedUser(null); setUserQuery(''); }}>
+                                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <View style={styles.searchInputRow}>
+                                <Ionicons name="person-outline" size={16} color={colors.textTertiary} />
+                                <TextInput
+                                    style={styles.searchInputField}
+                                    value={userQuery}
+                                    onChangeText={(text) => {
+                                        setUserQuery(text);
+                                        setShowUserResults(true);
+                                        if (selectedUser && text !== normalizeText(selectedUser.name)) {
+                                            setSelectedUser(null);
+                                        }
+                                    }}
+                                    onFocus={() => setShowUserResults(true)}
+                                    placeholder={businessType === 'referral' ? 'Search or enter a member...' : 'Search for a member...'}
+                                    placeholderTextColor={colors.textTertiary}
+                                />
+                            </View>
+                            {showUserResults && filteredUsers.length > 0 && (
+                                <View style={styles.dropdownList}>
+                                    {filteredUsers.map((u) => (
+                                        <TouchableOpacity
+                                            key={u.uid}
+                                            style={styles.dropdownItem}
+                                            onPress={() => {
+                                                setSelectedUser(u);
+                                                setUserQuery(normalizeText(u.name));
+                                                setShowUserResults(false);
+                                                if (u.chapterId) {
+                                                    const matchingChapter = availableChapters.find((chapter) => chapter.id === u.chapterId);
+                                                    if (matchingChapter) {
+                                                        setSelectedChapter(matchingChapter);
+                                                        setChapterQuery(normalizeText(matchingChapter.name));
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
+                                            <View style={styles.dropdownItemText}>
+                                                <Text style={styles.dropdownItemTitle}>{normalizeText(u.name)}</Text>
+                                                <Text style={styles.dropdownItemSub}>{normalizeText(u.businessName)}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </>
+                    )}
+                </View>
+
+                {/* Chapter - inline search */}
+                <View style={styles.fieldGroup}>
+                    <Text style={styles.label}>Chapter Name</Text>
+                    {selectedChapter ? (
+                        <View style={styles.selectedPill}>
+                            <Text style={styles.selectedPillText}>{normalizeText(selectedChapter.name)}</Text>
+                            <TouchableOpacity onPress={() => { setSelectedChapter(null); setChapterQuery(''); }}>
+                                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <View style={styles.searchInputRow}>
+                                <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+                                <TextInput
+                                    style={styles.searchInputField}
+                                    value={chapterQuery}
+                                    onChangeText={(text) => {
+                                        setChapterQuery(text);
+                                        setShowChapterResults(true);
+                                    }}
+                                    onFocus={() => setShowChapterResults(true)}
+                                    placeholder="Search for a chapter..."
+                                    placeholderTextColor={colors.textTertiary}
+                                />
+                            </View>
+                            {showChapterResults && filteredChapters.length > 0 && (
+                                <View style={styles.dropdownList}>
+                                    {filteredChapters.map((chapter) => (
+                                        <TouchableOpacity
+                                            key={chapter.id}
+                                            style={styles.dropdownItem}
+                                            onPress={() => {
+                                                setSelectedChapter(chapter);
+                                                setChapterQuery(normalizeText(chapter.name));
+                                                setShowChapterResults(false);
+                                            }}
+                                        >
+                                            <Ionicons name="business-outline" size={16} color={colors.primary} />
+                                            <View style={styles.dropdownItemText}>
+                                                <Text style={styles.dropdownItemTitle}>{normalizeText(chapter.name)}</Text>
+                                                <Text style={styles.dropdownItemSub}>
+                                                    {chapter.location?.city
+                                                        ? `${chapter.location.city}, ${chapter.location.state || ''}`
+                                                        : ''}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </>
+                    )}
+                </View>
 
                 {/* Amount */}
                 <View style={styles.fieldGroup}>
@@ -489,6 +541,25 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.md,
         borderWidth: 1,
         borderColor: colors.borderLight,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: colors.surfaceVariant,
+        borderRadius: borderRadius.sm,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.borderLight,
+    },
+    inputText: {
+        ...typography.body,
+        color: colors.text,
+        flex: 1,
+    },
+    placeholderText: {
+        color: colors.textTertiary,
     },
     searchInputRow: {
         flexDirection: 'row',

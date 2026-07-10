@@ -2,7 +2,7 @@
   "expo": {
     "name": "Brahmin Connect",
     "slug": "NetConnect",
-    "version": "0.5",
+    "version": "0.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
       }
     },
     "android": {
-      "versionCode": 9,
+      "versionCode": 13,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -41,7 +41,9 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
       ],
       "allowBackup": false
     },
@@ -104,9 +106,9 @@
     "extra": {
       "googlePlacesApiKey": "AIzaSyBW17GibxjFB5Vv9OyvX69suaDtF2X67ic",
       "eas": {
-        "projectId": "0ff668e1-dc70-4bd0-8945-afa982a1fd08"
+        "projectId": "fb43b211-a69e-4c62-ab93-f2406b71c6db"
       }
     },
-    "owner": "foxfirecharm"
+    "owner": "sdrt"
   }
 }

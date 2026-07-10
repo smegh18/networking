@@ -10,6 +10,7 @@ import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { useAuthStore } from '../../stores/authStore';
 import { colors, typography, spacing, borderRadius, layout, shadows } from '../../theme';
 import { isEventVisibleToChapter } from '../../utils/eventAudience';
+import { updateRecord } from '../../services/firebase/realtimeDb';
 import type { DashboardStackParamList, Event } from '../../types';
 
 type Props = StackScreenProps<DashboardStackParamList, 'Events'>;
@@ -31,6 +32,22 @@ const EventsScreen: React.FC<Props> = ({ navigation }) => {
   const upcomingEvents = sortedEvents.filter((event) => (event.date || '').slice(0, 10) >= now);
   const pastEvents = sortedEvents.filter((event) => (event.date || '').slice(0, 10) < now).reverse();
   const tabEvents = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
+
+  // Mark events as viewed
+  React.useEffect(() => {
+    if (!currentUser?.uid) return;
+    const updates: Promise<void>[] = [];
+    tabEvents.forEach((event) => {
+      if (!event.viewedBy?.includes(currentUser.uid)) {
+        const newViewedBy = [...(event.viewedBy || []), currentUser.uid];
+        updates.push(updateRecord(`events/${event.id}`, { viewedBy: newViewedBy }));
+      }
+    });
+
+    if (updates.length > 0) {
+      Promise.allSettled(updates).then(() => {});
+    }
+  }, [tabEvents, currentUser?.uid]);
 
   return (
     <ScreenWrapper scrollable={false} padded={false}>

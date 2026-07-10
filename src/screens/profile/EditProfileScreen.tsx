@@ -20,6 +20,9 @@ import { uploadProfilePhoto } from '../../services/firebase/storage';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 import type { ProfileStackParamList, User } from '../../types';
 import { normalizeStringArray, normalizeTextLower } from '../../utils/helpers';
+import { getCurrentUser } from '../../services/firebase/auth';
+import { getUser } from '../../services/firebase/firestore';
+import { createCategoryRequest } from '../../admin/services/adminFirestore';
 
 type Props = StackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
@@ -146,6 +149,46 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     setServiceDropdownOpen(false);
     if (categoryChanged) {
       setSelectedServices([]);
+    }
+  };
+
+  const handleRequestCategory = async () => {
+    if (!normalizedCategorySearch || !canCreateCategory) return;
+
+    try {
+      const uid = getCurrentUser()?.uid;
+      const user = uid ? await getUser(uid) : null;
+
+      if (!uid || !user) {
+        Alert.alert(
+          t('common.error', 'Error'),
+          t('register.sessionExpired', 'Session expired. Please sign in again.')
+        );
+        return;
+      }
+
+      await createCategoryRequest({
+        category: normalizedCategorySearch,
+        requestedById: uid,
+        requestedByName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || '',
+        requestedByBusinessName: user.businessName || '',
+        status: 'pending',
+      });
+
+      Alert.alert(
+        t('register.categoryRequestSentTitle'),
+        t('register.categoryRequestSentMessage')
+      );
+
+      // Clear the search but don't set the category since it's not approved yet
+      setCategorySearch('');
+      setCategoryDropdownOpen(false);
+    } catch (err) {
+      console.error('Failed to submit category request:', err);
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('register.categoryRequestFailed', 'Failed to send category request. Please try again.')
+      );
     }
   };
 
@@ -402,10 +445,10 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           {showCategoryDropdown && (filteredCategories.length > 0 || canCreateCategory) ? (
             <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {canCreateCategory ? (
-                <TouchableOpacity style={styles.serviceCreateItem} onPress={() => handleSelectCategory(normalizedCategorySearch)}>
+                <TouchableOpacity style={styles.serviceCreateItem} onPress={handleRequestCategory}>
                   <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                   <Text style={styles.serviceCreateText}>
-                    {t('editProfile.createCategoryTag', 'Create "{{category}}"', { category: normalizedCategorySearch })}
+                    {t('register.requestCategoryTag', 'Request "{{category}}"', { category: normalizedCategorySearch })}
                   </Text>
                 </TouchableOpacity>
               ) : null}

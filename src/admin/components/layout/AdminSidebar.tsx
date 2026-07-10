@@ -42,6 +42,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: 'AdminAds', label: 'Ads / Banners', icon: 'megaphone-outline', iconActive: 'megaphone' },
       { key: 'AdminAsks', label: 'Ask Board', icon: 'help-circle-outline', iconActive: 'help-circle' },
       { key: 'AdminBusinessConfig', label: 'Business Config', icon: 'options-outline', iconActive: 'options' },
+      { key: 'AdminCategoryRequests', label: 'Category Requests', icon: 'list-outline', iconActive: 'list' },
     ],
   },
   {

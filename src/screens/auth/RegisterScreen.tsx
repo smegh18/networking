@@ -21,7 +21,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, ref, set } from 'firebase/database';
 import { rtdb } from '../../../firebase.config';
 import { checkIdentifiersAvailability, getCurrentUser, sendOTPEmail, verifyEmailOtpAndAttach } from '../../services/firebase/auth';
-import { setPendingRegistration } from '../../services/onboarding/pendingRegistration';
+import { getUser } from '../../services/firebase/firestore';
+import { createCategoryRequest, getPendingCategoryRequest } from '../../admin/services/adminFirestore';
+import { APP_CONFIG_PATH, fetchRecord } from '../../services/firebase/realtimeDb';
+import { fetchPinCodeInfo } from '../../services/googlePlaces';
+import { clearPendingRegistration, setPendingRegistration } from '../../services/onboarding/pendingRegistration';
 import { TextInput } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../stores/authStore';
@@ -57,6 +61,10 @@ type FormErrors = {
 };
 
 type StepKey = 'personal' | 'business' | 'contact' | 'address';
+type Area = {
+  id: string;
+  name: string;
+};
 
 const STEPS: Array<{ key: StepKey; title: string }> = [
   { key: 'personal', title: 'Personal' },
@@ -127,19 +135,27 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState('');
   const [areaDropdownOpen, setAreaDropdownOpen] = useState(false);
+  const [businessPlaceId, setBusinessPlaceId] = useState('');
+  const [businessLatitude, setBusinessLatitude] = useState<number | undefined>(undefined);
+  const [businessLongitude, setBusinessLongitude] = useState<number | undefined>(undefined);
   const [googleBusinessProfile, setGoogleBusinessProfile] = useState('');
   const [linkedIn, setLinkedIn] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [fallbackBusinessCategories, setFallbackBusinessCategories] = useState<string[]>([]);
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollContentRef = useRef<View | null>(null);
   const categorySectionRef = useRef<View | null>(null);
   const dropdownMaxHeight = useDropdownMaxHeight(180);
   const keyboardHeight = useKeyboardHeight();
   const businessCategories = useMemo(
-    () => normalizeStringArray(businessConfig.businessCategories),
-    [businessConfig.businessCategories],
+    () =>
+      normalizeStringArray(businessConfig.businessCategories).length > 0
+        ? normalizeStringArray(businessConfig.businessCategories)
+        : fallbackBusinessCategories,
+    [businessConfig.businessCategories, fallbackBusinessCategories],
   );
+  const { items: userProfiles, loading: usersLoading } = useRealtimeCollection<User>('users', 'uid');
 
   useEffect(() => {
     const uid = getCurrentUser()?.uid;
@@ -147,46 +163,50 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     void setPendingRegistration(uid);
   }, []);
 
-  // Load areas data (mock data for now - replace with real service call)
   useEffect(() => {
-    const loadAreas = async () => {
-      try {
-        setAreasLoading(true);
-        // Mock data - in a real app, this would come from a service
-        const mockAreas = [
-          { id: 'area001', name: 'Connaught Place' },
-          { id: 'area002', name: 'Karol Bagh' },
-          { id: 'area003', name: 'Lajpat Nagar' },
-          { id: 'area004', name: 'Dwarka' },
-          { id: 'area005', name: 'Rohini' },
-          { id: 'area006', name: 'Pitampura' },
-          { id: 'area007', name: 'Janakpuri' },
-          { id: 'area008', name: 'Vasant Kunj' },
-          { id: 'area009', name: 'Saket' },
-          { id: 'area010', name: 'Greater Kailash' },
-          { id: 'area011', name: 'Defence Colony' },
-          { id: 'area012', name: 'Green Park' },
-          { id: 'area013', name: 'Hauz Khas' },
-          { id: 'area014', name: 'Malviya Nagar' },
-          { id: 'area015', name: 'Nehru Place' },
-          { id: 'area016', name: 'Lodi Colony' },
-          { id: 'area017', name: 'Khan Market' },
-          { id: 'area018', name: 'Ctrl' },
-          { id: 'area019', name: 'Gurgaon' },
-          { id: 'area020', name: 'Noida' }
-        ];
-        setAreas(mockAreas);
-      } catch (err) {
-        console.error('Failed to load areas:', err);
-      } finally {
-        setAreasLoading(false);
-      }
-    };
-    loadAreas();
-  }, []);
+    const nextAreas = Array.from(
+      new Set(
+        userProfiles.flatMap((user) => {
+          const values = [
+            user.businessArea,
+            user.location?.area,
+            user.location?.city,
+          ].map((value) => normalizeTextLower(String(value ?? '')));
+          return values.filter(Boolean);
+        }),
+      ),
+    )
+      .filter((value) => value.length > 0)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ id: value, name: value }));
+
+    setAreas(nextAreas);
+    setAreasLoading(usersLoading);
+  }, [userProfiles, usersLoading]);
 
   useEffect(() => {
     void AsyncStorage.removeItem(PENDING_PHONE_OTP_KEY);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFallbackCategories = async () => {
+      try {
+        const config = await fetchRecord<Record<string, unknown>>(APP_CONFIG_PATH);
+        if (cancelled) return;
+        const nextCategories = normalizeStringArray(config?.businessCategories);
+        if (nextCategories.length > 0) {
+          setFallbackBusinessCategories(nextCategories);
+        }
+      } catch {
+        // Ignore and rely on the realtime hook fallback path.
+      }
+    };
+
+    void loadFallbackCategories();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -226,9 +246,17 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
       normalizeTextLower(cat).includes(queryText),
     );
   }, [businessCategories, categorySearch]);
-  const normalizedCategorySearch = normalizeTag(categorySearch);
+
+  const filteredAreaOptions = useMemo(() => {
+    const query = businessArea.trim().toLowerCase();
+    const options = areas.map((area) => area.name);
+    const uniqueOptions = Array.from(new Set([...(query ? options.filter((name) => name.toLowerCase().includes(query)) : options), query].filter(Boolean)));
+    return uniqueOptions.slice(0, 10);
+  }, [areas, businessArea]);
+  const normalizedCategorySearch = normalizeTextLower(categorySearch);
   const canCreateCategory = !!normalizedCategorySearch
     && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedCategorySearch));
+  const showCategoryDropdown = categoryDropdownOpen && !companyCategory && (filteredCategories.length > 0 || canCreateCategory);
   const chapterOptions = useMemo<Chapter[]>(
     () =>
       chapters.length > 0
@@ -375,6 +403,56 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
     clearError('chapterId');
   };
 
+  const handleRequestCategory = async () => {
+    const rawRequestedCategory = categorySearch.trim().replace(/\s+/g, ' ');
+    const requestedCategory = rawRequestedCategory;
+    if (!requestedCategory || !canCreateCategory) return;
+
+    try {
+      const authUser = getCurrentUser();
+      const uid = authUser?.uid;
+
+      if (!uid) {
+        Alert.alert(
+          t('common.error', 'Error'),
+          t('register.sessionExpired', 'Session expired. Please sign in again.'),
+        );
+        return;
+      }
+
+      const requestedByName = [
+        `${firstName}`.trim(),
+        `${lastName}`.trim(),
+      ].filter(Boolean).join(' ') || authUser?.displayName || authUser?.email || 'Unknown User';
+      const requestedByBusinessName = businessName.trim() || 'Unknown Business';
+
+      await createCategoryRequest({
+        category: requestedCategory,
+        requestedById: uid,
+        requestedByName,
+        requestedByBusinessName,
+        status: 'pending',
+      });
+
+      // Set the companyCategory to the requested value so user can proceed with validation
+      setCompanyCategory(requestedCategory);
+      setCategorySearch('');
+      setCategoryDropdownOpen(false);
+
+      Alert.alert(
+        t('register.categoryRequestSentTitle', 'Category Request Sent'),
+        t('register.categoryRequestSentMessage', 'Your category request has been sent to admin for approval. Please select an existing category or try again later.')
+      );
+    } catch (err) {
+      console.error('Failed to submit category request:', err);
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('register.categoryRequestFailed', 'Failed to send category request. Please try again.')
+      );
+    }
+  };
+
+
   const handleClearChapter = () => {
     setChapterId('');
     setChapterSearch('');
@@ -471,6 +549,21 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
 
   const handleCreateAccount = async () => {
     if (!validateAll()) return;
+
+    const pendingCategory = companyCategory.trim();
+
+    // Check if the company category has a pending request
+    if (pendingCategory) {
+      const pendingRequest = await getPendingCategoryRequest(pendingCategory);
+      if (pendingRequest) {
+        Alert.alert(
+          t('common.error', 'Error'),
+          t('register.categoryPendingApproval', 'Please wait 24 hours until admin approves category')
+        );
+        return;
+      }
+    }
+
     const uid = getCurrentUser()?.uid;
     if (!uid) {
       Alert.alert(
@@ -588,6 +681,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
 
       await set(ref(rtdb, 'users/' + uid), userRecord);
       if (finalEmail) await AsyncStorage.setItem('netconnect_signin_email', finalEmail);
+      try {
+        await clearPendingRegistration();
+      } catch {
+        // ignore cleanup failures; continue with navigation
+      }
       setNewUser(false);
       navigation.reset({ index: 0, routes: [{ name: 'BiometricSetup' }] });
     } catch {
@@ -602,15 +700,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
 
   // Lookup city and state from PIN code
   const lookupCityStateFromPinCode = (pinCode: string): { city: string; state: string } | null => {
-    // Remove any non-digit characters and take first 6 digits
     const cleanPinCode = pinCode.replace(/\D/g, '').slice(0, 6);
-
-    // If not a 6-digit PIN code, return null
     if (cleanPinCode.length !== 6 || !/^\d{6}$/.test(cleanPinCode)) {
       return null;
     }
 
-    // Mock PIN code to city/state mapping (in a real app, this would come from a service)
     const pinCodeMap: Record<string, { city: string; state: string }> = {
       // Delhi
       '110001': { city: 'New Delhi', state: 'Delhi' },
@@ -818,53 +912,62 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
 
           <Text style={styles.inputLabel}>{t('register.companyCategory', 'Company Category')}</Text>
           <View ref={categorySectionRef} style={styles.dropdownWrapper} collapsable={false}>
-            <View
-              style={[
-                styles.dropdownInputRow,
-                categoryDropdownOpen && styles.dropdownInputRowFocused,
-                errors.companyCategory && styles.dropdownInputRowError,
-              ]}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => {
+                if (!companyCategory) {
+                  setCategoryDropdownOpen((open) => !open);
+                }
+              }}
             >
-              <Ionicons name="grid-outline" size={18} color={colors.textTertiary} />
-              <RNTextInput
-                style={styles.dropdownSearchInput}
-                value={companyCategory || categorySearch}
-                onChangeText={(text) => {
-                  if (!companyCategory) {
-                    setCategorySearch(text);
-                    setCategoryDropdownOpen(true);
-                  }
-                }}
-                onFocus={() => {
-                  if (!companyCategory) setCategoryDropdownOpen(true);
-                }}
-                onBlur={() => {
-                  setTimeout(() => setCategoryDropdownOpen(false), Platform.OS === 'android' ? 300 : 180);
-                }}
-                placeholder={t('register.companyCategoryPlaceholder', 'Select company category')}
-                placeholderTextColor={colors.textTertiary}
-                editable={!companyCategory}
-              />
-              {companyCategory ? (
-                <TouchableOpacity onPress={handleClearCategory}>
-                  <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ) : (
-                <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
-              )}
-            </View>
+              <View
+                style={[
+                  styles.dropdownInputRow,
+                  categoryDropdownOpen && styles.dropdownInputRowFocused,
+                  errors.companyCategory && styles.dropdownInputRowError,
+                ]}
+              >
+                <Ionicons name="grid-outline" size={18} color={colors.textTertiary} />
+                <RNTextInput
+                  style={styles.dropdownSearchInput}
+                  value={companyCategory || categorySearch}
+                  onChangeText={(text) => {
+                    if (!companyCategory) {
+                      setCategorySearch(text);
+                      setCategoryDropdownOpen(true);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!companyCategory) setCategoryDropdownOpen(true);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setCategoryDropdownOpen(false), Platform.OS === 'android' ? 300 : 180);
+                  }}
+                  placeholder={t('register.companyCategoryPlaceholder', 'Select company category')}
+                  placeholderTextColor={colors.textTertiary}
+                  editable={!companyCategory}
+                />
+                {companyCategory ? (
+                  <TouchableOpacity onPress={handleClearCategory}>
+                    <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                ) : (
+                  <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+                )}
+              </View>
+            </TouchableOpacity>
 
-            {categoryDropdownOpen && !companyCategory && (filteredCategories.length > 0 || canCreateCategory) ? (
+            {showCategoryDropdown ? (
               <ScrollView
                 style={[styles.dropdownList, { maxHeight: dropdownMaxHeight }]}
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled
               >
                 {canCreateCategory ? (
-                  <TouchableOpacity style={styles.serviceCreateItem} onPress={() => handleSelectCategory(normalizedCategorySearch)}>
-                    <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  <TouchableOpacity style={styles.serviceCreateItem} onPress={handleRequestCategory}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
                     <Text style={styles.serviceCreateText}>
-                      {t('register.createCategoryTag', 'Create "{{category}}"', { category: normalizedCategorySearch })}
+                      {t('register.requestCategoryTag', 'Request "{{category}}"', { category: normalizedCategorySearch })}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -1077,18 +1180,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
         <View style={styles.addressAutocompleteWrap}>
           <TextInput
             label={t('register.businessAddress', 'Business Address')}
-            placeholder={t('register.businessAddressPlaceholder', 'Start typing your business address')}
+            placeholder={t('register.businessAddressPlaceholder', 'Enter your business address')}
             value={businessAddress}
             onChangeText={(value) => {
               setBusinessAddress(value);
               setBusinessPlaceId('');
               setBusinessLatitude(undefined);
               setBusinessLongitude(undefined);
-              setIsAddressDropdownOpen(value.trim().length >= 3);
               clearError('businessAddress');
-            }}
-            onFocus={() => {
-              if (addressPredictions.length > 0) setIsAddressDropdownOpen(true);
             }}
             error={errors.businessAddress}
             icon="location-outline"
@@ -1096,39 +1195,41 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             numberOfLines={3}
             style={styles.multiline}
           />
-          {isFetchingAddressPredictions || isSelectingAddress ? (
-            <View style={styles.addressLoading}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.addressLoadingText}>
-                {isSelectingAddress
-                  ? t('register.loadingAddress', 'Filling address...')
-                  : t('register.searchingAddress', 'Searching addresses...')}
-              </Text>
-            </View>
-          ) : null}
-          {isAddressDropdownOpen && addressPredictions.length > 0 ? (
+        </View>
+        <View style={styles.addressAutocompleteWrap}>
+          <TextInput
+            label={t('register.area', 'Area')}
+            placeholder={t('register.areaPlaceholder', 'Area / locality (optional)')}
+            value={businessArea}
+            onChangeText={(value) => {
+              setBusinessArea(value);
+              setAreaSearch(value);
+              setAreaDropdownOpen(value.trim().length > 0);
+            }}
+            onFocus={() => {
+              if (filteredAreaOptions.length > 0) setAreaDropdownOpen(true);
+            }}
+            icon="map-outline"
+          />
+          {areaDropdownOpen && filteredAreaOptions.length > 0 ? (
             <View style={styles.addressSuggestions}>
-              {addressPredictions.map((prediction) => (
+              {filteredAreaOptions.map((option) => (
                 <TouchableOpacity
-                  key={prediction.placeId}
+                  key={option}
                   style={styles.addressSuggestionItem}
-                  onPress={() => handleSelectAddressPrediction(prediction)}
-                  activeOpacity={0.75}
+                  onPress={() => {
+                    setBusinessArea(option);
+                    setAreaSearch(option);
+                    setAreaDropdownOpen(false);
+                  }}
                 >
-                  <Ionicons name="location-outline" size={18} color={colors.primary} />
-                  <Text style={styles.addressSuggestionText}>{prediction.description}</Text>
+                  <Ionicons name="map-outline" size={18} color={colors.primary} />
+                  <Text style={styles.addressSuggestionText}>{option}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           ) : null}
         </View>
-        <TextInput
-          label={t('register.area', 'Area')}
-          placeholder={t('register.areaPlaceholder', 'Area / locality (optional)')}
-          value={businessArea}
-          onChangeText={setBusinessArea}
-          icon="map-outline"
-        />
         <TextInput
           label={t('register.pinCode', 'PIN Code')}
           placeholder={t('register.pinCodePlaceholder', '6-digit PIN code')}
@@ -1138,7 +1239,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
             setBusinessPinCode(cleanedValue);
             clearError('pinCode');
 
-            // Auto-fill city and state from PIN code
             if (cleanedValue.length === 6) {
               const location = lookupCityStateFromPinCode(cleanedValue);
               if (location) {
@@ -1146,6 +1246,17 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation, route }) =>
                 setBusinessState(location.state);
                 clearError('city');
                 clearError('state');
+              } else {
+                // Fallback: query public postal API for city/state
+                (async () => {
+                  const remote = await fetchPinCodeInfo(cleanedValue);
+                  if (remote) {
+                    setBusinessCity(remote.city);
+                    setBusinessState(remote.state);
+                    clearError('city');
+                    clearError('state');
+                  }
+                })();
               }
             }
           }}

@@ -69,8 +69,8 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <KeyboardAvoidingView
         style={styles.keyboardSafe}
-        enabled={Platform.OS === 'ios'}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        enabled={true}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
         {scrollable ? (
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: Platform.OS === 'web' ? 1 : undefined,
-    paddingBottom: Platform.OS === 'web' ? spacing['4xl'] : spacing['3xl'] + 88,
+    paddingBottom: Platform.OS === 'web' ? spacing['4xl'] : spacing.lg,
     maxWidth: '100%',
   },
   webScrollContent: {
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   nonScrollOuter: {
     flex: 1,
     minHeight: 0,
-    paddingBottom: Platform.OS === 'web' ? 0 : 88,
+    paddingBottom: 0,
     backgroundColor: colors.background,
   },
   inner: {

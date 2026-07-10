@@ -104,3 +104,25 @@ export async function fetchAddressDetails(placeId: string): Promise<ParsedAddres
     longitude: typeof location?.lng === 'number' ? location.lng : undefined,
   };
 }
+
+/**
+ * Query public India postal API to resolve PIN code to city/state as a fallback.
+ */
+export async function fetchPinCodeInfo(pinCode: string): Promise<{ city: string; state: string } | null> {
+  const clean = String(pinCode || '').replace(/\D/g, '').slice(0, 6);
+  if (clean.length !== 6) return null;
+  try {
+    const resp = await fetch(`https://api.postalpincode.in/pincode/${clean}`);
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const entry = data[0];
+    if (entry.Status !== 'Success' || !Array.isArray(entry.PostOffice) || entry.PostOffice.length === 0) return null;
+    const po = entry.PostOffice[0];
+    const city = String(po.District || po.Division || '');
+    const state = String(po.State || '');
+    if (!city && !state) return null;
+    return { city, state };
+  } catch (err) {
+    return null;
+  }
+}

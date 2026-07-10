@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '../ui/Badge';
 import { colors, typography, borderRadius, spacing, breakpoints, shadows } from '../../theme';
 
 interface QuickActionsProps {
@@ -9,6 +10,9 @@ interface QuickActionsProps {
   onInteractions: () => void;
   onReferralStatus: () => void;
   onMyEvents: () => void;
+  interactionCount?: number;
+  myEventsCount?: number;
+  referralCount?: number;
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
@@ -16,6 +20,9 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   onInteractions,
   onReferralStatus,
   onMyEvents,
+  interactionCount = 0,
+  myEventsCount = 0,
+  referralCount = 0,
 }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -24,9 +31,9 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
 
   const actions = [
     { label: t('dashboard.scheduleMeeting'), icon: 'calendar-outline' as const, color: colors.primary, onPress: onScheduleMeeting },
-    { label: t('dashboard.interactions'), icon: 'chatbubbles-outline' as const, color: colors.accent, onPress: onInteractions },
-    { label: t('dashboard.referralStatus'), icon: 'git-network-outline' as const, color: colors.secondary, onPress: onReferralStatus },
-    { label: t('dashboard.myEvents'), icon: 'megaphone-outline' as const, color: colors.success, onPress: onMyEvents },
+    { label: t('dashboard.interactions'), icon: 'chatbubbles-outline' as const, color: colors.accent, onPress: onInteractions, badgeCount: interactionCount },
+    { label: t('dashboard.referralStatus'), icon: 'git-network-outline' as const, color: colors.secondary, onPress: onReferralStatus, badgeCount: referralCount },
+    { label: t('dashboard.myEvents'), icon: 'megaphone-outline' as const, color: colors.success, onPress: onMyEvents, badgeCount: myEventsCount },
   ];
 
   const renderActionCard = (action: (typeof actions)[0], index: number) => (
@@ -36,14 +43,17 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       onPress={action.onPress}
       activeOpacity={0.7}
     >
-      <View
-        style={[
-          styles.iconContainer,
-          isMobile && styles.iconContainerMobile,
-          { backgroundColor: action.color + '15' },
-        ]}
-      >
-        <Ionicons name={action.icon} size={isMobile ? 18 : 26} color={action.color} />
+      <View style={styles.badgeAnchor}>
+        <View
+          style={[
+            styles.iconContainer,
+            isMobile && styles.iconContainerMobile,
+            { backgroundColor: action.color + '15' },
+          ]}
+        >
+          <Ionicons name={action.icon} size={isMobile ? 18 : 26} color={action.color} />
+        </View>
+        {action.badgeCount ? <Badge count={action.badgeCount} size="sm" style={styles.badge} /> : null}
       </View>
       <Text style={[styles.label, isMobile && styles.labelMobile]} numberOfLines={2}>
         {action.label}
@@ -101,18 +111,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.md,
   },
+  badgeAnchor: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
   iconContainer: {
     width: 52,
     height: 52,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
   iconContainerMobile: {
     width: 32,
     height: 32,
     marginBottom: spacing.xs,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
   },
   label: {
     ...typography.captionMedium,

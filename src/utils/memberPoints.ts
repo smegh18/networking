@@ -199,7 +199,7 @@ export function buildMemberPointsSummary(args: {
   pushBreakdown(
     breakdown,
     'business_given',
-    'Business given (₹50k blocks)',
+    'Business given (₹50k)',
     businessPointsCount,
     50, // 50 points per ₹50k
   );

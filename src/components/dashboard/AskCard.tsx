@@ -32,9 +32,11 @@ export const AskCard: React.FC<AskCardProps> = ({ ask, chapterName, onGiveReferr
     <Card style={styles.card}>
       {/* Header: service badge + time */}
       <View style={styles.header}>
-        <View style={styles.serviceBadge}>
-          <Ionicons name="briefcase-outline" size={14} color={colors.primary} />
-          <Text style={styles.serviceBadgeText}>{ask.service}</Text>
+        <View style={styles.serviceBadgeContainer}>
+          <View style={styles.serviceBadge}>
+            <Ionicons name="briefcase-outline" size={14} color={colors.primary} />
+            <Text style={styles.serviceBadgeText}>{ask.service}</Text>
+          </View>
         </View>
         <Text style={styles.timeText}>{timeAgo}</Text>
       </View>
@@ -117,9 +119,16 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  serviceBadgeContainer: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: spacing.xs,
   },
   serviceBadge: {
     flexDirection: 'row',
@@ -129,14 +138,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
     gap: spacing.xs,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   serviceBadgeText: {
     ...typography.captionMedium,
     color: colors.primary,
+    flexShrink: 1,
   },
   timeText: {
     ...typography.caption,
     color: colors.textTertiary,
+    marginLeft: 'auto',
+    textAlign: 'right',
+    flexShrink: 0,
   },
   categoryRow: {
     flexDirection: 'row',

@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { isEventVisibleToChapter } from '../../utils/eventAudience';
+import { createAppNotification } from '../../utils/notifications';
 import type { DashboardStackParamList, Event, EventAttendanceStatus, EventAttendanceDetail } from '../../types';
 
 const MAX_SUBSTITUTIONS = 2;
@@ -89,6 +90,13 @@ const EventDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         attendanceDetails: details,
         updatedAt: now(),
       });
+      await createAppNotification({
+        userId: uid,
+        type: 'event',
+        title: t('events.attendingTitle', 'You are attending this event'),
+        body: t('events.attendingBody', 'You have marked yourself as attending {{title}}.', { title: event.title }),
+        data: { eventId: event.id },
+      });
     } catch {
       Alert.alert(t('common.error'), t('events.rsvpFailed', 'Unable to update RSVP'));
     }
@@ -150,6 +158,13 @@ const EventDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         attendees: nextAttendees,
         attendanceDetails: details,
         updatedAt: now(),
+      });
+      await createAppNotification({
+        userId: uid,
+        type: 'event',
+        title: t('events.substituteTitle', 'Your event substitute has been saved'),
+        body: t('events.substituteBody', 'You have updated your attendance for {{title}}.', { title: event.title }),
+        data: { eventId: event.id },
       });
       setShowSubstituteForm(false);
       setSubstituteName('');

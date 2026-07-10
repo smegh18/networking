@@ -6,8 +6,11 @@ import { CommonActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { useAuthStore } from '../../stores/authStore';
+import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-import type { MoreStackParamList } from '../../types';
+import type { MoreStackParamList, Business } from '../../types';
 
 type Props = StackScreenProps<MoreStackParamList, 'More'>;
 
@@ -16,10 +19,13 @@ interface MoreCardItem {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  badgeCount?: number;
 }
 
 export const MoreScreen: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
+  const currentUser = useAuthStore((s) => s.user);
+  const { items: businessEntries } = useRealtimeCollection<Business>('business');
 
   const handleBusiness = () => {
     // MoreScreen is inside MoreTab (stack) -> MainTabs (bottom tabs).
@@ -90,9 +96,13 @@ export const MoreScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const businessCount = currentUser?.uid
+    ? businessEntries.filter((entry) => entry.givenById === currentUser.uid || entry.givenToId === currentUser.uid).length
+    : 0;
+
   const cards: MoreCardItem[] = [
     { key: 'invite', icon: 'person-add-outline', label: t('inviteVisitor.title', 'Invite Visitor'), onPress: handleInviteVisitor },
-    { key: 'business', icon: 'cash-outline', label: t('business.title', 'Business'), onPress: handleBusiness },
+    { key: 'business', icon: 'cash-outline', label: t('business.title', 'Business'), onPress: handleBusiness, badgeCount: businessCount },
     { key: 'events', icon: 'calendar-outline', label: t('events.title'), onPress: handleEvents },
     { key: 'referrals', icon: 'git-network-outline', label: t('referrals.title'), onPress: handleReferrals },
     { key: 'notifications', icon: 'notifications-outline', label: t('notifications.title'), onPress: handleNotifications },
@@ -122,7 +132,10 @@ export const MoreScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.iconWrap}>
                 <Ionicons name={item.icon} size={24} color={colors.primary} />
               </View>
-              <Text style={styles.cardLabel}>{item.label}</Text>
+              <View style={styles.cardTextWrap}>
+                <Text style={styles.cardLabel}>{item.label}</Text>
+                {item.badgeCount ? <Badge count={item.badgeCount} size="sm" style={styles.cardBadge} /> : null}
+              </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
             </View>
           </Card>
@@ -164,9 +177,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.lg,
   },
+  cardTextWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   cardLabel: {
     ...typography.bodyMedium,
     color: colors.text,
     flex: 1,
+  },
+  cardBadge: {
+    marginLeft: spacing.sm,
   },
 });

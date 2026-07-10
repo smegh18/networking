@@ -8,6 +8,7 @@ import {
   onValue,
   query,
   orderByChild,
+  equalTo,
   DataSnapshot,
 } from 'firebase/database';
 import { rtdb } from '../../../firebase.config';
@@ -23,6 +24,7 @@ import type {
   BusinessConfig,
   Business,
   VisitorInvite,
+  CategoryRequest,
 } from '../../types';
 import type { AdminDashboardStats } from '../types/admin';
 import { APP_CONFIG_PATH, EMPTY_BUSINESS_CONFIG, normalizeBusinessConfig } from '../../services/firebase/realtimeDb';
@@ -454,6 +456,49 @@ export async function updateBusinessConfigAdmin(data: BusinessConfig): Promise<v
     tagsByCategory: data.tagsByCategory || {},
     updatedAt: toISO(),
   });
+}
+
+// ── Category Requests Management ───────────────────────────────────────────────
+
+export const CATEGORY_REQUESTS_PATH = 'categoryRequests';
+
+export async function getAllCategoryRequests(): Promise<CategoryRequest[]> {
+  const snap = await get(ref(rtdb, CATEGORY_REQUESTS_PATH));
+  const items = snapToArray<CategoryRequest>(snap);
+  return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+}
+
+export async function createCategoryRequest(request: Omit<CategoryRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const newRef = push(ref(rtdb, CATEGORY_REQUESTS_PATH));
+  const now = toISO();
+  await set(newRef, {
+    ...request,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return newRef.key!;
+}
+
+export async function updateCategoryRequest(id: string, data: Partial<CategoryRequest>): Promise<void> {
+  await update(ref(rtdb, `${CATEGORY_REQUESTS_PATH}/${id}`), {
+    ...data,
+    updatedAt: toISO(),
+  });
+}
+
+export async function deleteCategoryRequest(id: string): Promise<void> {
+  await remove(ref(rtdb, `${CATEGORY_REQUESTS_PATH}/${id}`));
+}
+
+export async function getPendingCategoryRequest(category: string): Promise<CategoryRequest | null> {
+  const normalizedTarget = category.trim().toLowerCase();
+  const snap = await get(ref(rtdb, CATEGORY_REQUESTS_PATH));
+  const items = snapToArray<CategoryRequest>(snap);
+  const pendingRequest = items.find((request) => {
+    const requestCategory = String(request.category ?? '').trim().toLowerCase();
+    return request.status === 'pending' && requestCategory === normalizedTarget;
+  });
+  return pendingRequest || null;
 }
 
 // ── Real-time Listener ────────────────────────────────────────────────────────

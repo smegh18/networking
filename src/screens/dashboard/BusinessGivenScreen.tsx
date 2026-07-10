@@ -228,6 +228,7 @@ const BusinessGivenScreen: React.FC<Props> = ({ navigation }) => {
                 text: `Received by ${item.givenToName}`,
             };
         })();
+        const isPending = item.status === 'pending';
 
         return (
             <Card style={styles.rowCard}>
@@ -286,7 +287,13 @@ const BusinessGivenScreen: React.FC<Props> = ({ navigation }) => {
                     ) : null}
                 </View>
 
-                <View style={styles.rowBottom}>
+                <View style={[styles.rowBottom, isPending && styles.rowBottomPending]}>
+                    {isPending && (
+                        <View style={styles.pendingBadge}>
+                            <Ionicons name="hourglass-outline" size={14} color={colors.warning} />
+                            <Text style={styles.pendingBadgeText}>Pending</Text>
+                        </View>
+                    )}
                     <Text style={styles.rowAmount}>{formatCurrency(item.amount)}</Text>
                 </View>
 
@@ -426,6 +433,7 @@ const styles = StyleSheet.create({
         paddingBottom: spacing['4xl'],
     },
     rowCard: {
+        position: 'relative',
         marginHorizontal: layout.screenPadding,
         marginTop: spacing.md,
     },
@@ -490,14 +498,18 @@ const styles = StyleSheet.create({
     },
     rowBottom: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        alignItems: 'center',
         borderTopWidth: 1,
         borderTopColor: colors.borderLight,
         paddingTop: spacing.sm,
     },
+    rowBottomPending: {
+        justifyContent: 'space-between',
+    },
     rowAmount: {
         ...typography.bodySemiBold,
         color: colors.success,
+        marginLeft: 'auto',
     },
     tabContainer: {
         flexDirection: 'row',
@@ -552,5 +564,19 @@ const styles = StyleSheet.create({
     },
     actionBtn: {
         flex: 1,
+    },
+    pendingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.full,
+        gap: spacing.xs,
+        backgroundColor: colors.warning + '15',
+        marginRight: 0,
+    },
+    pendingBadgeText: {
+        ...typography.captionMedium,
+        color: colors.warning,
     },
 });

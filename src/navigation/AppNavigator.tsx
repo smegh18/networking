@@ -12,11 +12,12 @@ import { ApprovalPendingModal } from '../components/auth/ApprovalPendingModal';
 import { useAuthStore } from '../stores/authStore';
 import { usePendingRegistrationCleanup } from '../hooks/usePendingRegistrationCleanup';
 import { useCurrentUserRealtime } from '../hooks/useRealtimeData';
+import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 import { signOut } from '../services/firebase/auth';
 import { DEFAULT_CHAPTER_ID } from '../utils/chapter';
 
 const Stack = createStackNavigator<RootStackParamList>();
-const navRef = createNavigationContainerRef<RootStackParamList>();
+export const navRef = createNavigationContainerRef<RootStackParamList>();
 
 const navTheme = {
   ...DefaultTheme,
@@ -182,6 +183,7 @@ export const AppNavigator: React.FC = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isApproved = user?.isActive !== false;
   useCurrentUserRealtime();
+  useNotificationNavigation();
 
   return (
     <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>

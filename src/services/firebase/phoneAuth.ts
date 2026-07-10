@@ -32,10 +32,18 @@ function normalizeNativePhoneAuthError(err: unknown): Error {
     err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string'
       ? (err as { message: string }).message
       : 'Failed to send OTP. Please try again.';
+  const normalizedMessage = `${message}`.toLowerCase();
 
-  if (code === 'auth/invalid-app-credential' || code === 'auth/app-not-authorized') {
+  if (
+    code === 'auth/invalid-app-credential'
+    || code === 'auth/app-not-authorized'
+    || normalizedMessage.includes('invalid playintegrity token')
+    || normalizedMessage.includes('app not recognized by play store')
+    || normalizedMessage.includes('no recaptcha enterprise sitekey')
+    || normalizedMessage.includes('recaptcha enterprise')
+  ) {
     return new Error(
-      'Android Firebase phone auth is not configured correctly for this app build. Add the correct SHA-1 and SHA-256 fingerprints for `com.netconnect.app` in Firebase, download the updated `google-services.json`, and rebuild the Android app.',
+      'Phone verification is blocked on this Android build because Firebase Play Integrity / reCAPTCHA is not configured correctly. Please install the app from the Play Store or use the email OTP flow instead.',
     );
   }
 

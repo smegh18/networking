@@ -31,6 +31,8 @@ const DEFAULT_COUNTRY_CODE = '+91';
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 60;
 const PHONE_OTP_SEND_TIMEOUT_MS = 25_000;
+const PHONE_OTP_VERIFY_TIMEOUT_MS = 25_000;
+const ACCOUNT_COMPLETION_TIMEOUT_MS = 30_000;
 
 type PhoneAuthSession = {
   id: number;
@@ -47,6 +49,20 @@ const phoneTail = (value: string | null | undefined): string =>
 const logPhoneAuth = (stage: string, payload?: Record<string, unknown>) => {
   if (!__DEV__) return;
   console.log(`[PhoneAuth] ${stage}`, payload ?? {});
+};
+
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    }),
+    timeoutPromise,
+  ]);
 };
 
 const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -163,9 +179,23 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
     });
 
     const resolvedFirebaseUser = firebaseUser as Parameters<typeof resolveUserProfileForFirebaseUser>[0];
-    const matchedProfile =
-      await resolveUserProfileForFirebaseUser(resolvedFirebaseUser)
-      || await findUserProfileByPhone(firebaseUser.phoneNumber || session.phoneE164);
+    let matchedProfile: Awaited<ReturnType<typeof resolveUserProfileForFirebaseUser>> | null = null;
+    try {
+      matchedProfile = await withTimeout(
+        (async () => {
+          const directProfile = await resolveUserProfileForFirebaseUser(resolvedFirebaseUser);
+          if (directProfile) return directProfile;
+          return findUserProfileByPhone(firebaseUser.phoneNumber || session.phoneE164);
+        })(),
+        ACCOUNT_COMPLETION_TIMEOUT_MS,
+        'Account setup is taking too long. Please try again.',
+      );
+    } catch (profileErr) {
+      logPhoneAuth('AUTH_COMPLETE_PROFILE_TIMEOUT', {
+        sessionId: session.id,
+        error: profileErr instanceof Error ? profileErr.message : String(profileErr),
+      });
+    }
 
     if (didUnmountRef.current) return;
 
@@ -280,6 +310,7 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
       // Before sending OTP, ensure this phone is already registered in RTDB.
       const registeredUser = isRegisterMode ? null : await findUserProfileByPhone(normalizedPhone);
       if (!isRegisterMode && !registeredUser) {
+        otpRequestInFlightRef.current = false;
         setIsSendingOtp(false);
         Alert.alert(
           t('login.title', 'Login'),
@@ -414,9 +445,19 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
     setIsVerifying(true);
     logPhoneAuth('OTP_CODE', { sessionId: session.id, phoneNumber: session.phoneE164, code });
     try {
-      const userCred = await (confirmation as {
-        confirm: (c: string) => Promise<{ user: { uid?: string; phoneNumber?: string | null; email?: string | null } }>;
-      }).confirm(code);
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const userCred = await Promise.race([
+        (confirmation as {
+          confirm: (c: string) => Promise<{ user: { uid?: string; phoneNumber?: string | null; email?: string | null } }>;
+        }).confirm(code),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('Phone verification timed out. Please try again.'));
+          }, PHONE_OTP_VERIFY_TIMEOUT_MS);
+        }),
+      ]).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+      });
       logPhoneAuth('CONFIRM_SUCCESS', {
         sessionId: session.id,
         uid: userCred?.user?.uid,
@@ -427,7 +468,11 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
         setIsVerifying(false);
         return;
       }
-      await completePhoneAuth(firebaseUser, session, 'manual');
+      await withTimeout(
+        completePhoneAuth(firebaseUser, session, 'manual'),
+        ACCOUNT_COMPLETION_TIMEOUT_MS,
+        'Account setup is taking too long. Please try again.',
+      );
     } catch (err) {
       logPhoneAuth('CONFIRM_FAILED', {
         sessionId: session.id,
@@ -441,10 +486,26 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
         && !activeSessionRef.current.completed
         && phoneTail(currentUser.phoneNumber) === session.phoneDigits
       ) {
-        await completePhoneAuth(currentUser, session, 'auth_state');
+        try {
+          await completePhoneAuth(currentUser, session, 'auth_state');
+        } catch (completeErr) {
+          logPhoneAuth('AUTH_STATE_COMPLETE_FAILED', {
+            sessionId: session.id,
+            error: completeErr instanceof Error ? completeErr.message : String(completeErr),
+          });
+          setOtpError(
+            completeErr instanceof Error && completeErr.message
+              ? completeErr.message
+              : t('otp.errorVerification', 'Invalid or expired code. Please try again or resend.'),
+          );
+        }
         return;
       }
-      setOtpError(t('otp.errorVerification', 'Invalid or expired code. Please try again or resend.'));
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : t('otp.errorVerification', 'Invalid or expired code. Please try again or resend.');
+      setOtpError(message);
     } finally {
       setIsVerifying(false);
     }
@@ -453,7 +514,7 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
   const showOtpStep = !!confirmationResult;
 
   return (
-    <ScreenWrapper padded={false} scrollable={false} edges={['top', 'bottom']}>
+    <ScreenWrapper padded={false} scrollable={true} edges={['top', 'bottom']} contentStyle={styles.screenContent}>
       <Header title={isRegisterMode ? t('register.title', 'Create Account') : t('login.title', 'Login')} onBack={() => navigation.goBack()} />
       <View style={styles.container}>
         <View style={styles.illustrationContainer}>
@@ -567,10 +628,13 @@ const PhoneLoginScreen: React.FC<Props> = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
+  screenContent: {
+    flexGrow: 1,
+  },
   container: {
     paddingHorizontal: layout.screenPadding,
     paddingVertical: spacing.xl,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     maxWidth: layout.maxContentWidth,
     width: '100%',
     alignSelf: 'center',

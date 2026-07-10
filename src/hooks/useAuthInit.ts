@@ -2,6 +2,13 @@ import { useEffect } from 'react';
 import { onAuthStateChanged, syncMyAccount } from '../services/firebase/auth';
 import { resolveUserProfileForFirebaseUser } from '../services/firebase/userProfile';
 import { useAuthStore } from '../stores/authStore';
+import { configureNotifications, registerForPushNotifications, savePushToken } from '../services/firebase/messaging';
+import { Platform } from 'react-native';
+
+// Configure foreground notifications globally
+if (Platform.OS !== 'web') {
+  configureNotifications();
+}
 
 /**
  * Syncs auth store with Firebase auth state on app load.
@@ -33,6 +40,15 @@ export function useAuthInit() {
           setUser(user);
           // Best-effort repair: keep Auth + RTDB identifiers in sync for older/incomplete accounts.
           if (!didSync) void syncMyAccount();
+
+          // Register for push notifications
+          if (Platform.OS !== 'web') {
+            registerForPushNotifications().then((token) => {
+              if (token) {
+                savePushToken(user.uid, token).catch(console.error);
+              }
+            });
+          }
         } else {
           clearAuth();
         }

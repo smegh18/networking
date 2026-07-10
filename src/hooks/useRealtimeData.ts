@@ -4,6 +4,8 @@ import type { BusinessConfig, User } from '../types';
 import {
   APP_CONFIG_PATH,
   EMPTY_BUSINESS_CONFIG,
+  fetchCollection,
+  fetchRecord,
   normalizeBusinessConfig,
   subscribeToCollection,
   subscribeToPath,
@@ -16,16 +18,37 @@ export function useRealtimeCollection<T>(path: string, idKey: string = 'id') {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+
     const unsubscribe = subscribeToCollection<T>(
       path,
       (nextItems) => {
-        setItems(nextItems);
-        setLoading(false);
+        if (!cancelled) {
+          setItems(nextItems);
+          setLoading(false);
+        }
       },
       idKey,
     );
-    return unsubscribe;
+
+    void fetchCollection<T>(path, idKey)
+      .then((nextItems) => {
+        if (!cancelled) {
+          setItems(nextItems);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [path, idKey]);
 
   return { items, loading };
@@ -36,16 +59,37 @@ export function useRealtimeRecord<T>(path: string, fallback: T) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+
     const unsubscribe = subscribeToPath<T>(
       path,
       (nextValue) => {
-        setValue(nextValue);
-        setLoading(false);
+        if (!cancelled) {
+          setValue(nextValue);
+          setLoading(false);
+        }
       },
       fallback,
     );
-    return unsubscribe;
+
+    void fetchRecord<T>(path)
+      .then((nextValue) => {
+        if (!cancelled) {
+          setValue(nextValue ?? fallback);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [fallback, path]);
 
   return { value, loading };

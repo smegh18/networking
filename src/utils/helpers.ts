@@ -68,12 +68,12 @@ export const openWhatsApp = (phone: string): string => {
 export const openWhatsAppWithMessage = (phone: string, text: string): string => {
   let cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 10) cleaned = '91' + cleaned;
-  return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`;
+  return `whatsapp://send?phone=${cleaned}&text=${encodeURIComponent(text)}`;
 };
 
 /** WhatsApp share URL without a fixed recipient. */
 export const shareToWhatsApp = (text: string): string => {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return `whatsapp://send?text=${encodeURIComponent(text)}`;
 };
 
 /** Deep link to open an event in the app (scheme from app.json). */

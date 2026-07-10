@@ -1,7 +1,9 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
-admin.initializeApp();
+admin.initializeApp({
+  databaseURL: "https://bbcn-networking-default-rtdb.firebaseio.com"
+});
 
 const FIRESTORE = admin.firestore();
 const AUTH = admin.auth();
@@ -525,5 +527,138 @@ exports.onRtdbUserWrite = functions.region('us-central1').database.ref('/users/{
     }
   }
 
+  return null;
+});
+
+/**
+ * Mirror RTDB meetings to Firestore.
+ */
+exports.mirrorMeetingToFirestore = functions.region('us-central1').database.ref('/meetings/{meetingId}').onWrite(async (change, context) => {
+  const meetingId = context.params.meetingId;
+  const after = change.after.val();
+
+  if (!change.after.exists()) {
+    await FIRESTORE.collection('meetings').doc(meetingId).delete();
+    return null;
+  }
+
+  if (after._source === 'firestore') {
+    // Remove the flag so it doesn't linger
+    await change.after.ref.update({ _source: null });
+    return null;
+  }
+
+  await FIRESTORE.collection('meetings').doc(meetingId).set({
+    ...after,
+    _source: 'rtdb'
+  }, { merge: true });
+
+  return null;
+});
+
+/**
+ * Mirror Firestore meetings to RTDB.
+ */
+exports.mirrorMeetingToRtdb = functions.region('us-central1').firestore.document('meetings/{meetingId}').onWrite(async (change, context) => {
+  const meetingId = context.params.meetingId;
+  const after = change.after.data();
+
+  if (!change.after.exists) {
+    await RTDB.ref(`meetings/${meetingId}`).remove();
+    return null;
+  }
+
+  if (after._source === 'rtdb') {
+    await change.after.ref.update({ _source: admin.firestore.FieldValue.delete() });
+    return null;
+  }
+
+  await RTDB.ref(`meetings/${meetingId}`).update({
+    ...after,
+    _source: 'firestore'
+  });
+
+  return null;
+});
+
+/**
+ * HTTP Endpoint to one-time sync existing chapters and meetings from RTDB to Firestore.
+ */
+exports.syncRtdbToFirestore = functions.region('us-central1').https.onRequest(async (req, res) => {
+  try {
+    const chaptersSnap = await RTDB.ref('chapters').once('value');
+    if (chaptersSnap.exists()) {
+      const chapters = chaptersSnap.val();
+      for (const [id, data] of Object.entries(chapters)) {
+        await FIRESTORE.collection('chapters').doc(id).set(data);
+      }
+    }
+
+    const meetingsSnap = await RTDB.ref('meetings').once('value');
+    if (meetingsSnap.exists()) {
+      const meetings = meetingsSnap.val();
+      for (const [id, data] of Object.entries(meetings)) {
+        await FIRESTORE.collection('meetings').doc(id).set(data);
+      }
+    }
+
+    res.send("Sync complete! Chapters and meetings have been copied to Firestore.");
+  } catch (error) {
+    res.status(500).send(error.toString());
+  }
+});
+
+/**
+ * RTDB trigger: send push notification via Expo Push API
+ * when a new notification is added to /notifications/{notificationId}
+ */
+exports.sendPushNotification = functions.region('us-central1').database.ref('/notifications/{notificationId}').onCreate(async (snap, context) => {
+  const notificationId = context.params.notificationId;
+  const data = snap.val();
+  
+  if (!data || !data.userId || !data.title) {
+    return null;
+  }
+  
+  try {
+    const userSnap = await RTDB.ref(`users/${data.userId}/pushToken`).once('value');
+    if (!userSnap.exists()) {
+      console.log(`No push token for user ${data.userId}`);
+      return null;
+    }
+    
+    const pushToken = userSnap.val();
+    if (!pushToken || !String(pushToken).startsWith('ExponentPushToken[')) {
+      console.log(`Invalid push token for user ${data.userId}: ${pushToken}`);
+      return null;
+    }
+    
+    const message = {
+      to: pushToken,
+      sound: 'default',
+      title: data.title,
+      body: data.body,
+      data: data.data || {},
+    };
+    
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+    
+    const receipt = await response.json();
+    console.log(`Push sent to ${data.userId}, response:`, JSON.stringify(receipt));
+    
+    await snap.ref.update({ pushStatus: 'sent' });
+  } catch (err) {
+    console.error(`Error sending push to ${data.userId}:`, err);
+    await snap.ref.update({ pushStatus: 'error' });
+  }
+  
   return null;
 });

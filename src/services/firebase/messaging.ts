@@ -1,8 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../firebase.config';
+import { ref, update } from 'firebase/database';
+import { rtdb } from '../../../firebase.config';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -92,14 +92,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
 }
 
 /**
- * Persist the push token to the user's Firestore document so the
+ * Persist the push token to the user's RTDB profile so the
  * backend (e.g. Cloud Functions) can send targeted notifications.
  */
 export async function savePushToken(
   userId: string,
   token: string,
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', userId), {
+  await update(ref(rtdb, `users/${userId}`), {
     pushToken: token,
     pushTokenUpdatedAt: new Date().toISOString(),
   });

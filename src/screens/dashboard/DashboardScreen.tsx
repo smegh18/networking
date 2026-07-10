@@ -25,6 +25,8 @@ import type {
   DashboardStats,
   Chapter,
   Business,
+  Meeting,
+  Referral,
 } from '../../types';
 
 type Props = StackScreenProps<DashboardStackParamList, 'Dashboard'>;
@@ -42,6 +44,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { items: chapters } = useRealtimeCollection<Chapter>('chapters');
   const { items: users } = useRealtimeCollection<User>('users', 'uid');
   const { items: businessEntries } = useRealtimeCollection<Business>('business');
+  const { items: meetings } = useRealtimeCollection<Meeting>('meetings');
+  const { items: allReferrals } = useRealtimeCollection<Referral>('referrals');
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -126,6 +130,36 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
       .slice(0, 6);
   }, [currentUser?.chapterId, events]);
+
+  const unseenEventsCount = useMemo(() => {
+    if (!currentUser?.uid) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    return events
+      .filter((event) => (event.date || '').slice(0, 10) >= today)
+      .filter((event) => isEventVisibleToChapter(event, currentUser?.chapterId))
+      .filter((event) => !event.viewedBy?.includes(currentUser.uid))
+      .length;
+  }, [currentUser?.uid, currentUser?.chapterId, events]);
+
+  const interactionsCount = useMemo(() => {
+    if (!currentUser?.uid) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    return meetings.filter((meeting) =>
+      (meeting.requesterId === currentUser.uid || meeting.requesteeId === currentUser.uid) &&
+      (!meeting.viewedBy?.includes(currentUser.uid)) &&
+      (meeting.scheduledDate || '').slice(0, 10) >= today
+    ).length;
+  }, [currentUser?.uid, meetings]);
+
+  const referralCount = useMemo(() => {
+    if (!currentUser?.uid) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    return allReferrals.filter((ref) =>
+      (ref.giverId === currentUser.uid || ref.receiverId === currentUser.uid) &&
+      (!ref.viewedBy?.includes(currentUser.uid)) &&
+      (ref.createdAt || '').slice(0, 10) >= today
+    ).length;
+  }, [currentUser?.uid, allReferrals]);
 
   const liveAds = useMemo(
     () =>
@@ -241,6 +275,9 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           onInteractions={() => navigation.navigate('Interactions')}
           onReferralStatus={() => navigation.navigate('ReferralStatus')}
           onMyEvents={() => navigation.navigate('Events')}
+          interactionCount={interactionsCount}
+          myEventsCount={unseenEventsCount}
+          referralCount={referralCount}
         />
       </Section>
 

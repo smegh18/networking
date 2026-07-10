@@ -12,6 +12,7 @@ import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { colors, typography, spacing, borderRadius, layout, shadows } from '../../theme';
 import { REFERRAL_STATUSES } from '../../utils/constants';
 import type { Ask, DashboardStackParamList, Referral } from '../../types';
+import { updateRecord } from '../../services/firebase/realtimeDb';
 
 type Props = StackScreenProps<DashboardStackParamList, 'ReferralStatus'>;
 
@@ -38,6 +39,22 @@ const ReferralStatusScreen: React.FC<Props> = ({ navigation }) => {
     () => allReferrals.filter((referral) => referral.receiverId === currentUser?.uid),
     [allReferrals, currentUser?.uid],
   );
+
+  // Mark referrals as viewed when user visits the screen
+  React.useEffect(() => {
+    if (!currentUser?.uid) return;
+    const allUserReferrals = [...givenReferrals, ...receivedReferrals];
+    const unviewed = allUserReferrals.filter(
+      (referral) => !referral.viewedBy?.includes(currentUser.uid)
+    );
+    if (unviewed.length === 0) return;
+
+    const updates = unviewed.map((referral) => {
+      const newViewedBy = [...(referral.viewedBy || []), currentUser.uid];
+      return updateRecord(`referrals/${referral.id}`, { viewedBy: newViewedBy });
+    });
+    Promise.allSettled(updates).then(() => {});
+  }, [givenReferrals, receivedReferrals, currentUser?.uid]);
 
   const receivedReferralGroups = useMemo<ReceivedReferralGroup[]>(() => {
     const map = new Map<string, Referral[]>();

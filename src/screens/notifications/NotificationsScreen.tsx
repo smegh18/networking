@@ -98,6 +98,14 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       }
     }
 
+    if (notification.type === 'referral') {
+      const tabNav = navigation.getParent();
+      if (tabNav) {
+        (tabNav as any).navigate('DashboardTab', { screen: 'ReferralStatus' });
+        return;
+      }
+    }
+
     navigation.navigate('NotificationDetail', { notificationId: notification.id });
   };
 

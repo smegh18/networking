@@ -24,6 +24,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 import type { Ask, Chapter, User } from '../../types';
 import { normalizeStringArray, normalizeText, normalizeTextLower } from '../../utils/helpers';
+import { getCurrentUser } from '../../services/firebase/auth';
+import { getUser } from '../../services/firebase/firestore';
+import { createCategoryRequest } from '../../admin/services/adminFirestore';
 
 interface AskBoardProps {
   onGiveReferral?: (ask: Ask) => void;
@@ -59,6 +62,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
   const [askSubcategoryDropdownOpen, setAskSubcategoryDropdownOpen] = useState(false);
   const [askDescription, setAskDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const ignoreAskDropdownBlurRef = useRef<'category' | 'subcategory' | null>(null);
 
   const dropdownMaxHeight = useDropdownMaxHeight(250);
 
@@ -162,7 +166,12 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     return businessCategories.filter((cat) => normalizeTextLower(cat).includes(q));
   }, [askCategorySearch, businessCategories]);
 
-  const showCategoryDropdown = askCategoryDropdownOpen && askCategorySearch.trim().length > 0 && !askCategory;
+  const normalizedAskCategorySearch = normalizeText(askCategorySearch);
+  const canRequestCategory = !!normalizedAskCategorySearch
+    && !businessCategories.some((cat) => normalizeTextLower(cat) === normalizeTextLower(normalizedAskCategorySearch))
+    && !askCategory;
+
+  const showCategoryDropdown = askCategoryDropdownOpen && !askCategory;
 
   const handleSelectCategory = (cat: string) => {
     setAskCategory(cat);
@@ -178,6 +187,46 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
     setAskCategoryDropdownOpen(false);
     setAskService('');
     setAskSubcategoryDropdownOpen(false);
+  };
+
+  const handleRequestCategory = async () => {
+    if (!normalizedAskCategorySearch || !canRequestCategory) return;
+
+    try {
+      const uid = getCurrentUser()?.uid;
+      const user = uid ? await getUser(uid) : null;
+
+      if (!uid || !user) {
+        Alert.alert(
+          t('common.error', 'Error'),
+          t('register.sessionExpired', 'Session expired. Please sign in again.')
+        );
+        return;
+      }
+
+      await createCategoryRequest({
+        category: normalizedAskCategorySearch,
+        requestedById: uid,
+        requestedByName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || '',
+        requestedByBusinessName: user.businessName || '',
+        status: 'pending',
+      });
+
+      Alert.alert(
+        t('register.categoryRequestSentTitle'),
+        t('register.categoryRequestSentMessage')
+      );
+
+      // Clear the search but don't set the category since it's not approved yet
+      setAskCategorySearch('');
+      setAskCategoryDropdownOpen(false);
+    } catch (err) {
+      console.error('Failed to submit category request:', err);
+      Alert.alert(
+        t('common.error', 'Error'),
+        t('register.categoryRequestFailed', 'Failed to send category request. Please try again.')
+      );
+    }
   };
 
   const handleSubmitAsk = async () => {
@@ -491,7 +540,7 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.fieldLabel}>{t('ask.categoryLabel')}</Text>
               <View style={styles.categoryDropdownWrapper}>
                 <View style={styles.categoryInputRow}>
@@ -508,6 +557,13 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                     onFocus={() => {
                       if (!askCategory) setAskCategoryDropdownOpen(true);
                     }}
+                    onBlur={() => setTimeout(() => {
+                      if (ignoreAskDropdownBlurRef.current === 'category') {
+                        ignoreAskDropdownBlurRef.current = null;
+                        return;
+                      }
+                      setAskCategoryDropdownOpen(false);
+                    }, 180)}
                     placeholder={t('ask.categoryPlaceholder') || 'Search category...'}
                     placeholderTextColor={colors.textTertiary}
                     editable={!askCategory}
@@ -520,10 +576,27 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                     <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
                   )}
                 </View>
-                {showCategoryDropdown && filteredCategories.length > 0 ? (
+                {showCategoryDropdown && (filteredCategories.length > 0 || canRequestCategory) ? (
                   <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {canRequestCategory ? (
+                      <TouchableOpacity
+                        style={styles.categoryDropdownItem}
+                        onPressIn={() => { ignoreAskDropdownBlurRef.current = 'category'; }}
+                        onPress={handleRequestCategory}
+                      >
+                        <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                        <Text style={styles.categoryDropdownItemText}>
+                          {t('register.requestCategoryTag', 'Request "{{category}}"', { category: normalizedAskCategorySearch })}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                     {filteredCategories.map((cat) => (
-                      <TouchableOpacity key={cat} style={styles.categoryDropdownItem} onPress={() => handleSelectCategory(cat)}>
+                      <TouchableOpacity
+                        key={cat}
+                        style={styles.categoryDropdownItem}
+                        onPressIn={() => { ignoreAskDropdownBlurRef.current = 'category'; }}
+                        onPress={() => handleSelectCategory(cat)}
+                      >
                         <Text style={styles.categoryDropdownItemText}>{cat}</Text>
                       </TouchableOpacity>
                     ))}
@@ -545,7 +618,13 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                           setAskSubcategoryDropdownOpen(true);
                         }}
                         onFocus={() => setAskSubcategoryDropdownOpen(true)}
-                        onBlur={() => setTimeout(() => setAskSubcategoryDropdownOpen(false), 180)}
+                        onBlur={() => setTimeout(() => {
+                          if (ignoreAskDropdownBlurRef.current === 'subcategory') {
+                            ignoreAskDropdownBlurRef.current = null;
+                            return;
+                          }
+                          setAskSubcategoryDropdownOpen(false);
+                        }, 180)}
                         placeholder={t('ask.subCategoryPlaceholder', 'Select subcategory...')}
                         placeholderTextColor={colors.textTertiary}
                       />
@@ -557,24 +636,36 @@ export const AskBoard: React.FC<AskBoardProps> = ({ onGiveReferral, onSchedule }
                         <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
                       )}
                     </View>
-                    {askSubcategoryDropdownOpen && (servicesByCategory as Record<string, string[]>)[askCategory] ? (
-                      <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                        {normalizeStringArray((servicesByCategory as Record<string, string[]>)[askCategory])
-                          .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
-                          .slice(0, 50)
-                          .map((tag) => (
-                            <TouchableOpacity
-                              key={tag}
-                              style={styles.categoryDropdownItem}
-                              onPress={() => {
-                                setAskService(tag);
-                                setAskSubcategoryDropdownOpen(false);
-                              }}
-                            >
-                              <Text style={styles.categoryDropdownItemText}>{tag}</Text>
-                            </TouchableOpacity>
-                          ))}
-                      </ScrollView>
+                    {askCategory ? (
+                      <View>
+                        {askSubcategoryDropdownOpen ? (
+                          <View>
+                            <ScrollView style={[styles.categoryDropdownList, { maxHeight: dropdownMaxHeight }]} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                              {normalizeStringArray((servicesByCategory as Record<string, string[]>)[askCategory] || [])
+                                .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
+                                .slice(0, 50)
+                                .map((tag) => (
+                                  <TouchableOpacity
+                                    key={tag}
+                                    style={styles.categoryDropdownItem}
+                                    onPressIn={() => { ignoreAskDropdownBlurRef.current = 'subcategory'; }}
+                                    onPress={() => {
+                                      setAskService(tag);
+                                      setAskSubcategoryDropdownOpen(false);
+                                    }}
+                                  >
+                                    <Text style={styles.categoryDropdownItemText}>{tag}</Text>
+                                  </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            {normalizeStringArray((servicesByCategory as Record<string, string[]>)[askCategory] || [])
+                              .filter((tag) => !askService.trim() || normalizeTextLower(tag).includes(normalizeTextLower(askService)))
+                              .length === 0 && askService.trim() !== '' ? (
+                              <Text style={styles.filterEmpty}>{t('common.noResults', 'No matching options')}</Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+                      </View>
                     ) : null}
                   </View>
                 </>

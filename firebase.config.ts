@@ -1,5 +1,6 @@
+import { Platform } from 'react-native';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, inMemoryPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getDatabase } from 'firebase/database';
@@ -9,6 +10,7 @@ import { getFunctions } from 'firebase/functions';
 export const firebaseConfig = {
   apiKey: "AIzaSyAdd1tEKiTvwH96a5gfdmOsfW5bltVSnps",
   authDomain: "bbcn-networking.firebaseapp.com",
+  databaseURL: "https://bbcn-networking-default-rtdb.firebaseio.com",
   projectId: "bbcn-networking",
   storageBucket: "bbcn-networking.firebasestorage.app",
   messagingSenderId: "327954628816",
@@ -18,8 +20,12 @@ export const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Fallback to default Auth initialization for compatibility with current Firebase SDK.
-const auth = getAuth(app);
+// Initialize auth with the correct persistence behavior for the current platform.
+const auth = Platform.OS === 'web'
+  ? getAuth(app)
+  : initializeAuth(app, {
+      persistence: inMemoryPersistence,
+    });
 
 const db = getFirestore(app);
 const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
