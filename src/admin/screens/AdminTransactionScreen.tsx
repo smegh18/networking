@@ -22,13 +22,6 @@ import { normalizeTextLower } from '../../utils/helpers';
 
 type Props = StackScreenProps<AdminStackParamList, 'AdminTransactions'>;
 
-/** Placeholder until live aggregates are wired from Firestore */
-const DUMMY_BUSINESS_STATS = {
-  totalBusiness: 12_500,
-  businessGiven: 7_200,
-  businessReceived: 5_300,
-} as const;
-
 const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isCompact = width < 900;
@@ -60,6 +53,24 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
 
     return result;
   }, [transactions, activeTab, search]);
+
+  const stats = useMemo(() => {
+    let totalBusiness = 0;
+    
+    transactions.forEach(t => {
+      if (t.status === 'approved') {
+        totalBusiness += Number(t.amount) || 0;
+      }
+    });
+
+    // In a global context without a specific user perspective, the total amount given
+    // by members equals the total amount received by members.
+    return {
+      totalBusiness,
+      businessGiven: totalBusiness,
+      businessReceived: totalBusiness,
+    };
+  }, [transactions]);
 
   const tabs = useMemo(
     () => [
@@ -180,21 +191,21 @@ const AdminTransactionScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.kpiRow}>
         <AdminKPICard
           title="Total Business"
-          value={formatAmount(DUMMY_BUSINESS_STATS.totalBusiness)}
+          value={formatAmount(stats.totalBusiness)}
           icon="cash"
           iconColor={colors.primary}
           iconBg={colors.primaryFaded}
         />
         <AdminKPICard
           title="Business Given"
-          value={formatAmount(DUMMY_BUSINESS_STATS.businessGiven)}
+          value={formatAmount(stats.businessGiven)}
           icon="arrow-up-circle"
           iconColor={colors.success}
           iconBg={colors.successLight}
         />
         <AdminKPICard
           title="Business Received"
-          value={formatAmount(DUMMY_BUSINESS_STATS.businessReceived)}
+          value={formatAmount(stats.businessReceived)}
           icon="arrow-down-circle"
           iconColor={colors.accent}
           iconBg={colors.accentFaded}

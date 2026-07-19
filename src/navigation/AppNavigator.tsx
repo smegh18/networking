@@ -88,7 +88,15 @@ const linking = {
 const AuthStackWrapper = () => {
   const user = useAuthStore((s) => s.user);
   const needsProfileCompletion = !!user && user.profileComplete === false;
-  return <AuthStack initialRouteName={needsProfileCompletion ? 'Register' : 'Welcome'} />;
+
+  let initialRoute: any = 'Welcome';
+  if (needsProfileCompletion) {
+    initialRoute = 'Register';
+  } else if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hostname.startsWith('admin')) {
+    initialRoute = 'AdminLogin';
+  }
+
+  return <AuthStack initialRouteName={initialRoute} />;
 };
 
 const DEV_AUTH_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_ENABLE_DEV_AUTH === 'true';
@@ -180,7 +188,9 @@ export const AppNavigator: React.FC = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  const isAdmin = isGlobalAdmin || isChapterAdmin;
   const isApproved = user?.isActive !== false;
   useCurrentUserRealtime();
   useNotificationNavigation();

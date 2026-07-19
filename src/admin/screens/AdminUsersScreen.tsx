@@ -42,6 +42,10 @@ import type { User, Event, Meeting, Referral, Ask, VisitorInvite, Business, Chap
 import { normalizeTextLower } from "../../utils/helpers";
 import { normalizeAdminUserProfile } from "../utils/normalizeAdminUser";
 import { getChapterName } from "../../utils/chapter";
+import { useAdminAuth } from "../hooks/useAdminAuth";
+import { filterUsersByAdminScope } from "../utils/adminRBAC";
+import { AdminUserBusinessActivity } from "../components/ui/AdminUserBusinessActivity";
+import { AdminUserMemberActivity } from "../components/ui/AdminUserMemberActivity";
 
 type Props = StackScreenProps<AdminStackParamList, "AdminUsers">;
 
@@ -55,9 +59,13 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   const { items: liveUsers, loading: usersLoading } = useRealtimeCollection<User>("users", "uid");
   const { items: chapters, loading: chaptersLoading } = useRealtimeCollection<Chapter>("chapters");
   const { items: tableBusinessEntries, loading: businessLoading } = useRealtimeCollection<Business>("business");
+  const { items: tableReferrals, loading: referralsLoading } = useRealtimeCollection<Referral>("referrals");
+  const { user: adminUser, isGlobalAdmin } = useAdminAuth();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [deleteModal, setDeleteModal] = useState<User | null>(null);
+
+  const [detailTab, setDetailTab] = useState<"profile" | "business" | "activity">("profile");
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -73,12 +81,12 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
 
   const users = useMemo(
     () =>
-      liveUsers
+      filterUsersByAdminScope(liveUsers, adminUser, isGlobalAdmin)
         .map((user) => normalizeAdminUserProfile(user.uid, user))
         .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [liveUsers],
+    [liveUsers, adminUser, isGlobalAdmin],
   );
-  const loading = usersLoading || chaptersLoading || businessLoading;
+  const loading = usersLoading || chaptersLoading || businessLoading || referralsLoading;
 
   const loadUserDetails = async (userId: string, listFallback?: User) => {
     const listUser = listFallback ?? users.find((u) => u.uid === userId);
@@ -87,6 +95,7 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
     setSelectedUser(null);
     setSelectedUserId(userId);
     setProfileIncomplete(false);
+    setDetailTab("profile");
 
     try {
       const [
@@ -165,6 +174,21 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
 
     return totals;
   }, [tableBusinessEntries]);
+
+  const referralTotalsByUser = useMemo(() => {
+    const totals: Record<string, { given: number; received: number }> = {};
+    tableReferrals.forEach((ref) => {
+      if (ref.giverId) {
+        totals[ref.giverId] = totals[ref.giverId] || { given: 0, received: 0 };
+        totals[ref.giverId].given += 1;
+      }
+      if (ref.receiverId) {
+        totals[ref.receiverId] = totals[ref.receiverId] || { given: 0, received: 0 };
+        totals[ref.receiverId].received += 1;
+      }
+    });
+    return totals;
+  }, [tableReferrals]);
 
   const filteredUsers = useMemo(() => {
     let result = users;
@@ -262,6 +286,26 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         ),
       },
       {
+        key: "referralGiven",
+        label: "Referral given",
+        width: 150,
+        render: (item: User) => (
+          <Text style={styles.amountText}>
+            {referralTotalsByUser[item.uid]?.given || 0}
+          </Text>
+        ),
+      },
+      {
+        key: "referralReceived",
+        label: "Referral received",
+        width: 170,
+        render: (item: User) => (
+          <Text style={styles.amountText}>
+            {referralTotalsByUser[item.uid]?.received || 0}
+          </Text>
+        ),
+      },
+      {
         key: "businessGiven",
         label: "Business given",
         width: 170,
@@ -317,7 +361,7 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         ),
       },
     ],
-    [businessTotalsByUser, chapters, navigation],
+    [businessTotalsByUser, referralTotalsByUser, chapters, navigation],
   );
 
   const handleDelete = async () => {
@@ -442,30 +486,66 @@ const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
         ) : null}
-        <MemberProfileContent
-        user={selectedUser}
-        chapterName={chapterName}
-        events={events}
-        meetings={meetings}
-        referrals={referrals}
-        asks={asks}
-        visitorInvites={visitorInvites}
-        businessEntries={businessEntries}
-        layout="scroll"
-        headerSlot={renderAdminToolbar()}
-        businessTabFooter={
-          <View style={styles.adminFooter}>
-            <Button
-              title="Edit Profile"
-              onPress={() =>
-                navigation.navigate("AdminUserForm", { userId: selectedUser.uid })
-              }
-              icon="create-outline"
-              fullWidth
-            />
-          </View>
-        }
-        />
+
+        <View style={styles.detailTabBar}>
+          <TouchableOpacity
+            style={[styles.detailTab, detailTab === "profile" && styles.detailTabActive]}
+            onPress={() => setDetailTab("profile")}
+          >
+            <Text style={[styles.detailTabText, detailTab === "profile" && styles.detailTabTextActive]}>
+              Profile Info
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.detailTab, detailTab === "business" && styles.detailTabActive]}
+            onPress={() => setDetailTab("business")}
+          >
+            <Text style={[styles.detailTabText, detailTab === "business" && styles.detailTabTextActive]}>
+              Business Activity
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.detailTab, detailTab === "activity" && styles.detailTabActive]}
+            onPress={() => setDetailTab("activity")}
+          >
+            <Text style={[styles.detailTabText, detailTab === "activity" && styles.detailTabTextActive]}>
+              Member Activity
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {detailTab === "profile" ? (
+          <MemberProfileContent
+            user={selectedUser}
+            chapterName={chapterName}
+            events={events}
+            meetings={meetings}
+            referrals={referrals}
+            asks={asks}
+            visitorInvites={visitorInvites}
+            businessEntries={businessEntries}
+            layout="scroll"
+            headerSlot={renderAdminToolbar()}
+            businessTabFooter={<View style={styles.adminFooter} />}
+            hideMemberActivity={true}
+          />
+        ) : detailTab === "business" ? (
+          <AdminUserBusinessActivity
+            user={selectedUser}
+            businessEntries={businessEntries}
+            chapters={chapters}
+          />
+        ) : (
+          <AdminUserMemberActivity
+            user={selectedUser}
+            events={events}
+            meetings={meetings}
+            referrals={referrals}
+            asks={asks}
+            visitorInvites={visitorInvites}
+            businessEntries={businessEntries}
+          />
+        )}
       </>
     );
   };
@@ -674,6 +754,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flex: 1,
     lineHeight: 20,
+  },
+  detailTabBar: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
+    marginBottom: spacing.xl,
+  },
+  detailTab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  detailTabActive: {
+    backgroundColor: colors.primary,
+  },
+  detailTabText: {
+    ...typography.bodySmallMedium,
+    color: colors.textSecondary,
+  },
+  detailTabTextActive: {
+    color: "#fff",
   },
 });
 

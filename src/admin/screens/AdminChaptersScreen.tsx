@@ -14,6 +14,7 @@ import {
   updateChapter,
   deleteChapter,
 } from '../services/adminFirestore';
+import { useAdminAuth } from '../hooks/useAdminAuth';
 import type { AdminStackParamList } from '../types/admin';
 import type { Chapter } from '../../types';
 
@@ -22,6 +23,7 @@ type Props = StackScreenProps<AdminStackParamList, 'AdminChapters'>;
 const AdminChaptersScreen: React.FC<Props> = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isGlobalAdmin, user: adminUser } = useAdminAuth();
 
   // Chapter form
   const [chapterModal, setChapterModal] = useState(false);
@@ -40,7 +42,10 @@ const AdminChaptersScreen: React.FC<Props> = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const chaptersData = await getAllChapters();
+      let chaptersData = await getAllChapters();
+      if (!isGlobalAdmin && adminUser?.chapterId) {
+        chaptersData = chaptersData.filter(c => c.id === adminUser.chapterId);
+      }
       setChapters(chaptersData);
     } catch (err) {
       console.error(err);
@@ -118,10 +123,12 @@ const AdminChaptersScreen: React.FC<Props> = () => {
     <AdminLayout title="Chapters" activeScreen="AdminChapters">
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Chapters</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => openChapterForm()} activeOpacity={0.7}>
-          <Ionicons name="add" size={18} color={colors.textInverse} />
-          <Text style={styles.addButtonText}>Add Chapter</Text>
-        </TouchableOpacity>
+        {isGlobalAdmin && (
+          <TouchableOpacity style={styles.addButton} onPress={() => openChapterForm()} activeOpacity={0.7}>
+            <Ionicons name="add" size={18} color={colors.textInverse} />
+            <Text style={styles.addButtonText}>Add Chapter</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <AdminDataTable
         columns={chapterColumns}
@@ -131,7 +138,7 @@ const AdminChaptersScreen: React.FC<Props> = () => {
         emptyMessage="No chapters found"
         paginate={false}
         fullWidth
-        actions={(item) => (
+        actions={isGlobalAdmin ? (item) => (
           <View style={styles.actionRow}>
             <TouchableOpacity onPress={() => openChapterForm(item)} activeOpacity={0.7}>
               <Ionicons name="create-outline" size={18} color={colors.primary} />
@@ -140,7 +147,7 @@ const AdminChaptersScreen: React.FC<Props> = () => {
               <Ionicons name="trash-outline" size={18} color={colors.error} />
             </TouchableOpacity>
           </View>
-        )}
+        ) : undefined}
       />
 
       {/* Chapter Modal */}

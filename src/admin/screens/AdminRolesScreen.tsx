@@ -10,6 +10,8 @@ import { AdminStatusBadge } from '../components/ui/AdminStatusBadge';
 import { useRealtimeCollection } from '../../hooks/useRealtimeData';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { updateUserAdmin } from '../services/adminFirestore';
+import { useAdminAuth } from '../hooks/useAdminAuth';
+import { filterUsersByAdminScope } from '../utils/adminRBAC';
 import { colors, spacing, typography } from '../../theme';
 import {
   buildMemberPointsSummary,
@@ -58,13 +60,20 @@ const AdminRolesScreen: React.FC<Props> = () => {
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [accessRole, setAccessRole] = useState<AccessRole>('member');
+  
+  const { user: adminUser, isGlobalAdmin } = useAdminAuth();
+
+  const filteredUsers = useMemo(
+    () => filterUsersByAdminScope(users, adminUser, isGlobalAdmin),
+    [users, adminUser, isGlobalAdmin]
+  );
   const [leadershipRole, setLeadershipRole] = useState<LeadershipRole>('member');
   const [leadershipRolePoints, setLeadershipRolePoints] = useState('0');
   const [leadershipRoleCity, setLeadershipRoleCity] = useState('');
   const [leadershipRoleChapterIds, setLeadershipRoleChapterIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  const roleRows = useMemo<RoleRow[]>(() => users.map((user) => {
+  const roleRows = useMemo<RoleRow[]>(() => filteredUsers.map((user) => {
     const summary = buildMemberPointsSummary({
       user,
       events,
@@ -80,7 +89,7 @@ const AdminRolesScreen: React.FC<Props> = () => {
       rolePoints: summary.rolePoints,
       leadershipRoleLabel: summary.roleLabel,
     };
-  }), [asks, events, meetings, referrals, users, visitorInvites, business]);
+  }), [asks, events, meetings, referrals, filteredUsers, visitorInvites, business]);
 
   const filteredRows = useMemo(() => {
     const query = normalizeTextLower(search);

@@ -29,6 +29,7 @@ export interface User {
   businessCategory: string;
   businessTags: string[];
   businessPhotos: string[];
+  gstCertificates?: string[];
   services?: string[];
   businessAddress?: string;
   businessArea?: string;

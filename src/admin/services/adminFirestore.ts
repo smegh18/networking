@@ -11,7 +11,9 @@ import {
   equalTo,
   DataSnapshot,
 } from 'firebase/database';
-import { rtdb } from '../../../firebase.config';
+import { rtdb, functions } from '../../../firebase.config';
+import { httpsCallable } from 'firebase/functions';
+import { useAuthStore } from '../../stores/authStore';
 import type {
   User,
   Chapter,
@@ -29,6 +31,17 @@ import type {
 import type { AdminDashboardStats } from '../types/admin';
 import { APP_CONFIG_PATH, EMPTY_BUSINESS_CONFIG, normalizeBusinessConfig } from '../../services/firebase/realtimeDb';
 import { DEFAULT_CHAPTER_ID, getUserChapterId } from '../../utils/chapter';
+import {
+  filterUsersByAdminScope,
+  filterEventsByAdminScope,
+  filterMeetingsByAdminScope,
+  filterReferralsByAdminScope,
+  filterAdsByAdminScope,
+  filterAsksByAdminScope,
+  filterBusinessByAdminScope,
+  filterVisitorInvitesByAdminScope,
+  filterCategoryRequestsByAdminScope,
+} from '../utils/adminRBAC';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -71,7 +84,7 @@ async function backfillMissingUserChapters(users: User[]): Promise<void> {
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
 
-export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
+export async function getAdminDashboardStats(currentUser?: User, isGlobalAdmin: boolean = true): Promise<AdminDashboardStats> {
   const TIMEOUT = 8000;
 
   const [usersSnap, chaptersSnap, eventsSnap, meetingsSnap, referralsSnap, adsSnap, asksSnap] =
@@ -85,13 +98,21 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
       withTimeout(get(ref(rtdb, 'asks')), TIMEOUT),
     ]);
 
-  const users = usersSnap ? snapToArray<User>(usersSnap, 'uid') : [];
+  const rawUsers = usersSnap ? snapToArray<User>(usersSnap, 'uid') : [];
+  const rawEvents = eventsSnap ? snapToArray<Event>(eventsSnap) : [];
+  const rawMeetings = meetingsSnap ? snapToArray<Meeting>(meetingsSnap) : [];
+  const rawReferrals = referralsSnap ? snapToArray<Referral>(referralsSnap) : [];
+  const rawAds = adsSnap ? snapToArray<Ad>(adsSnap) : [];
+  const rawAsks = asksSnap ? snapToArray<Ask>(asksSnap) : [];
+
+  const users = filterUsersByAdminScope(rawUsers, currentUser, isGlobalAdmin);
+  const events = filterEventsByAdminScope(rawEvents, currentUser, isGlobalAdmin);
+  const meetings = filterMeetingsByAdminScope(rawMeetings, rawUsers, currentUser, isGlobalAdmin);
+  const referrals = filterReferralsByAdminScope(rawReferrals, rawUsers, currentUser, isGlobalAdmin);
+  const ads = filterAdsByAdminScope(rawAds, rawUsers, currentUser, isGlobalAdmin);
+  const asks = filterAsksByAdminScope(rawAsks, rawUsers, currentUser, isGlobalAdmin);
+  
   const chapters = chaptersSnap ? snapToArray<Chapter>(chaptersSnap) : [];
-  const events = eventsSnap ? snapToArray<Event>(eventsSnap) : [];
-  const meetings = meetingsSnap ? snapToArray<Meeting>(meetingsSnap) : [];
-  const referrals = referralsSnap ? snapToArray<Referral>(referralsSnap) : [];
-  const ads = adsSnap ? snapToArray<Ad>(adsSnap) : [];
-  const asks = asksSnap ? snapToArray<Ask>(asksSnap) : [];
   const today = new Date().toISOString().split('T')[0];
 
   return {
@@ -168,13 +189,17 @@ export async function deleteUserDoc(uid: string): Promise<void> {
   await remove(ref(rtdb, `users/${uid}`));
 }
 
+export async function setPresidentCredentials(targetUid: string, password: string): Promise<void> {
+  const setPresidentCredentialsCallable = httpsCallable<{ targetUid: string, password: string }, { success: boolean }>(functions, 'setPresidentCredentials');
+  await setPresidentCredentialsCallable({ targetUid, password });
+}
+
 // ── Chapter CRUD ──────────────────────────────────────────────────────────────
 
 export async function getAllChapters(): Promise<Chapter[]> {
   const snap = await get(ref(rtdb, 'chapters'));
   return snapToArray<Chapter>(snap);
 }
-
 export async function createChapter(
   chapter: Omit<Chapter, 'id' | 'createdAt'>,
 ): Promise<string> {
@@ -224,7 +249,11 @@ async function syncEventsAfterChapterDelete(deletedChapterId: string): Promise<v
 export async function getAllEventsAdmin(): Promise<Event[]> {
   const snap = await get(ref(rtdb, 'events'));
   const items = snapToArray<Event>(snap);
-  return items.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  const filtered = filterEventsByAdminScope(items, user, isGlobalAdmin);
+  return filtered.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 }
 
 export async function createEventAdmin(
@@ -258,6 +287,16 @@ export async function deleteEvent(eventId: string): Promise<void> {
 export async function getAllReferrals(): Promise<Referral[]> {
   const snap = await get(ref(rtdb, 'referrals'));
   const items = snapToArray<Referral>(snap);
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    const filtered = filterReferralsByAdminScope(items, users, user, isGlobalAdmin);
+    return filtered.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  }
   return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 }
 
@@ -273,7 +312,17 @@ export async function updateReferralStatusAdmin(
 export async function getAllBusinessTransactions(): Promise<Business[]> {
   const snap = await get(ref(rtdb, 'business'));
   const items = snapToArray<Business>(snap);
-  return items.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    const filtered = filterBusinessByAdminScope(items, users, user, isGlobalAdmin);
+    return filtered.sort((a: Business, b: Business) => (b.date ?? '').localeCompare(a.date ?? ''));
+  }
+  return items.sort((a: Business, b: Business) => (b.date ?? '').localeCompare(a.date ?? ''));
 }
 
 export async function getBusinessAdmin(id: string): Promise<Business | null> {
@@ -294,21 +343,51 @@ export async function deleteBusinessTransaction(id: string): Promise<void> {
 
 export async function getAllMeetingsAdmin(): Promise<Meeting[]> {
   const snap = await get(ref(rtdb, 'meetings'));
-  return snapToArray<Meeting>(snap);
+  const items = snapToArray<Meeting>(snap);
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    return filterMeetingsByAdminScope(items, users, user, isGlobalAdmin);
+  }
+  return items;
 }
 
 // ── Visitor Invite Management ─────────────────────────────────────────────────
 
 export async function getAllVisitorInvitesAdmin(): Promise<VisitorInvite[]> {
   const snap = await get(ref(rtdb, 'visitor_invites'));
-  return snapToArray<VisitorInvite>(snap);
+  const items = snapToArray<VisitorInvite>(snap);
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    return filterVisitorInvitesByAdminScope(items, users, user, isGlobalAdmin);
+  }
+  return items;
 }
 
 // ── Ad Management ─────────────────────────────────────────────────────────────
 
 export async function getAllAds(): Promise<Ad[]> {
   const snap = await get(ref(rtdb, 'ads'));
-  return snapToArray<Ad>(snap);
+  const items = snapToArray<Ad>(snap);
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    return filterAdsByAdminScope(items, users, user, isGlobalAdmin);
+  }
+  return items;
 }
 
 export async function createAd(ad: Omit<Ad, 'id' | 'createdAt'>): Promise<string> {
@@ -333,11 +412,36 @@ export async function toggleAdActive(adId: string, active: boolean): Promise<voi
 
 export async function getAllAsks(): Promise<Ask[]> {
   const snap = await get(ref(rtdb, 'asks'));
-  return snapToArray<Ask>(snap);
+  const items = snapToArray<Ask>(snap);
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    return filterAsksByAdminScope(items, users, user, isGlobalAdmin);
+  }
+  return items;
 }
 
 export async function deleteAsk(askId: string): Promise<void> {
   await remove(ref(rtdb, `asks/${askId}`));
+}
+
+// ── Additional Deletion Methods for Member Activity ────────────────────────────
+
+export async function deleteReferral(referralId: string): Promise<void> {
+  await remove(ref(rtdb, `referrals/${referralId}`));
+}
+
+export async function deleteMeeting(meetingId: string): Promise<void> {
+  await remove(ref(rtdb, `meetings/${meetingId}`));
+}
+
+export async function removeEventAttendance(eventId: string, userId: string): Promise<void> {
+  await remove(ref(rtdb, `events/${eventId}/attendanceRecords/${userId}`));
+  await remove(ref(rtdb, `events/${eventId}/attendanceDetails/${userId}`));
 }
 
 // ── Notification Management ───────────────────────────────────────────────────
@@ -465,7 +569,17 @@ export const CATEGORY_REQUESTS_PATH = 'categoryRequests';
 export async function getAllCategoryRequests(): Promise<CategoryRequest[]> {
   const snap = await get(ref(rtdb, CATEGORY_REQUESTS_PATH));
   const items = snapToArray<CategoryRequest>(snap);
-  return items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  
+  const user = useAuthStore.getState().user;
+  const isChapterAdmin = user?.leadershipRole === 'president';
+  const isGlobalAdmin = user?.role === 'superadmin' || (user?.role === 'admin' && !isChapterAdmin);
+  if (!isGlobalAdmin && user?.leadershipRole === 'president') {
+    const usersSnap = await get(ref(rtdb, 'users'));
+    const users = snapToArray<User>(usersSnap, 'uid');
+    const filtered = filterCategoryRequestsByAdminScope(items, users, user, isGlobalAdmin);
+    return filtered.sort((a: CategoryRequest, b: CategoryRequest) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  }
+  return items.sort((a: CategoryRequest, b: CategoryRequest) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 }
 
 export async function createCategoryRequest(request: Omit<CategoryRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {

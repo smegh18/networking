@@ -64,6 +64,7 @@ export type MemberProfileContentProps = {
   showManagePhotosAction?: boolean;
   /** `scroll` shows business + activity sections in one page; `tabs` switches between them */
   layout?: 'tabs' | 'scroll';
+  hideMemberActivity?: boolean;
 };
 
 export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
@@ -83,6 +84,7 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
   onManagePhotos,
   showManagePhotosAction = false,
   layout = 'tabs',
+  hideMemberActivity = false,
 }) => {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -383,11 +385,17 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
       </Section>
 
       <Section
-        title={t('profile.businessPhotos')}
+        title={t('profile.uploads', 'Uploads')}
         actionLabel={showManagePhotosAction ? t('profile.manage') : undefined}
         onAction={showManagePhotosAction ? onManagePhotos : undefined}
       >
+        <Text style={styles.subsectionTitle}>{t('profile.businessPhotos')}</Text>
         <BusinessGallery photos={user.businessPhotos || []} />
+
+        <View style={styles.divider} />
+
+        <Text style={styles.subsectionTitle}>{t('profile.gstCertificates', 'GST Certificates')}</Text>
+        <BusinessGallery photos={user.gstCertificates || []} />
       </Section>
     </>
   );
@@ -477,12 +485,12 @@ export const MemberProfileContent: React.FC<MemberProfileContentProps> = ({
 
       {isScrollLayout ? (
         <>
-          {renderActivitySections()}
+          {!hideMemberActivity && renderActivitySections()}
           {renderBusinessSections()}
         </>
       ) : (
         <>
-          {activeTab === 'activity' ? renderActivitySections() : null}
+          {activeTab === 'activity' && !hideMemberActivity ? renderActivitySections() : null}
           {activeTab === 'business' ? (
             <>
               {renderBusinessSections()}
@@ -707,6 +715,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
     marginBottom: spacing.xs,
+  },
+  subsectionTitle: {
+    ...typography.bodySmallMedium,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
   description: {
     ...typography.body,

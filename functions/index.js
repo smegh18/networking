@@ -662,3 +662,54 @@ exports.sendPushNotification = functions.region('us-central1').database.ref('/no
   
   return null;
 });
+
+/**
+ * Callable: setPresidentCredentials
+ * Body: { targetUid: string, password: string }
+ * Sets the password for a given user and emails them their credentials.
+ * Only accessible by global admins.
+ */
+exports.setPresidentCredentials = functions.region('us-central1').https.onCall(async (data, context) => {
+  const callerUid = context.auth && context.auth.uid;
+  if (!callerUid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+  }
+
+  const { targetUid, password } = data || {};
+  if (!targetUid || !password) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing targetUid or password.');
+  }
+
+  // Verify caller is admin or superadmin
+  const callerSnap = await RTDB.ref(`users/${callerUid}/role`).once('value');
+  const role = callerSnap.val();
+  if (role !== 'admin' && role !== 'superadmin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can perform this action.');
+  }
+
+  // Get target user's email
+  const targetSnap = await RTDB.ref(`users/${targetUid}/email`).once('value');
+  const email = targetSnap.val();
+  if (!email) {
+    throw new functions.https.HttpsError('not-found', 'Target user email not found.');
+  }
+
+  // Update Auth password
+  try {
+    await AUTH.updateUser(targetUid, { password });
+  } catch (err) {
+    throw new functions.https.HttpsError('internal', `Failed to update password: ${err.message}`);
+  }
+
+  // Queue email via Trigger Email extension
+  await FIRESTORE.collection('mail').add({
+    to: email,
+    message: {
+      subject: 'Welcome! Your Chapter President Login Credentials',
+      text: `Congratulations on being chosen as a Chapter President!\n\nYour login credentials for the admin panel are:\nEmail: ${email}\nPassword: ${password}\n\nPlease keep this secure.`,
+      html: `<p>Congratulations on being chosen as a Chapter President!</p><p>Your login credentials for the admin panel are:</p><ul><li><strong>Email:</strong> ${email}</li><li><strong>Password:</strong> ${password}</li></ul><p>Please keep this secure.</p>`,
+    },
+  });
+
+  return { success: true };
+});

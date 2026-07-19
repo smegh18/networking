@@ -84,7 +84,8 @@ const AdminLoginScreen: React.FC<Props> = ({ navigation }) => {
       if (snap.exists()) {
         const data = snap.val() as Record<string, unknown>;
         const role = data?.role as string | undefined;
-        if (role !== 'admin' && role !== 'superadmin') {
+        const leadershipRole = data?.leadershipRole as string | undefined;
+        if (role !== 'admin' && role !== 'superadmin' && leadershipRole !== 'president') {
           await signOut();
           setError(t('auth.notAdminAccount', 'This account is not an admin. Use the regular login.'));
           return;

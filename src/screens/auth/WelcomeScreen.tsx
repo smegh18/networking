@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +44,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   const handleRegister = () => {
     navigation.navigate('PhoneLogin', { mode: 'register' });
   };
+
+  const isAppDomain = Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hostname.startsWith('app');
 
   return (
     <ScreenWrapper scrollable padded={false} edges={['top', 'bottom']} contentStyle={styles.scrollContent}>
@@ -151,17 +154,19 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.adminLink}
-          onPress={() => navigation.navigate('AdminLogin')}
-          activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-          accessibilityRole="button"
-          accessibilityLabel={t('auth.adminLogin', 'Admin Login')}
-        >
-          <Ionicons name="shield-checkmark-outline" size={16} color={colors.textSecondary} />
-          <Text style={styles.adminLinkText}>{t('auth.adminLogin', 'Admin Login')}</Text>
-        </TouchableOpacity>
+        {!isAppDomain && (
+          <TouchableOpacity
+            style={styles.adminLink}
+            onPress={() => navigation.navigate('AdminLogin')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('auth.adminLogin', 'Admin Login')}
+          >
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.adminLinkText}>{t('auth.adminLogin', 'Admin Login')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScreenWrapper>
   );

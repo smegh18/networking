@@ -24,6 +24,7 @@ import {
   getUserAdmin,
   createUserAdmin,
   updateUserAdmin,
+  setPresidentCredentials,
 } from "../services/adminFirestore";
 
 import type { AccessRole, Chapter } from "../../types";
@@ -51,6 +52,8 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
   const [chapterId, setChapterId] = useState(getUserChapterId(""));
 
   const [role, setRole] = useState<AccessRole>("member");
+  const [leadershipRole, setLeadershipRole] = useState("member");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   const { config: businessConfig } = useBusinessConfig();
@@ -75,6 +78,7 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
         setState(user.location?.state || "");
         setChapterId(getUserChapterId(user.chapterId));
         setRole((user.role as AccessRole) || "member");
+        setLeadershipRole(user.leadershipRole || "member");
       }
     } catch {
       Alert.alert("Error", "Failed to load user data.");
@@ -104,6 +108,24 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
     ],
     []
   );
+
+  const leadershipRoleOptions = useMemo(
+    () => [
+      { key: "member", label: "Regular Member" },
+      { key: "president", label: "President" },
+      { key: "vice_president", label: "Vice President" },
+    ],
+    []
+  );
+
+  const generateRandomPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let newPassword = "";
+    for (let i = 0; i < 12; i++) {
+      newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPassword(newPassword);
+  };
 
   const chapterOptions = useMemo(
     () => (
@@ -143,7 +165,12 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
           location: { city, state },
           chapterId: getUserChapterId(chapterId),
           role,
+          leadershipRole: leadershipRole as any,
         });
+        
+        if (leadershipRole === 'president' && password) {
+          await setPresidentCredentials(userId, password);
+        }
       } else {
         const uid = `u_${Date.now()}`;
 
@@ -170,11 +197,15 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
           language: "en",
           biometricEnabled: false,
           role,
-          leadershipRole: 'member',
+          leadershipRole: leadershipRole as any,
           leadershipRolePoints: 0,
           leadershipRoleCity: '',
           isActive: true,
         });
+        
+        if (leadershipRole === 'president' && password) {
+          await setPresidentCredentials(uid, password);
+        }
       }
 
       navigation.goBack();
@@ -252,8 +283,36 @@ const AdminUserFormScreen: React.FC<Props> = ({ navigation, route }) => {
               searchPlaceholder="Search chapters..."
             />
           </View>
-          <View style={styles.fieldColumn} />
+          <View style={styles.fieldColumn}>
+            <AdminDropdownField
+              label="Leadership Role"
+              value={leadershipRole}
+              options={leadershipRoleOptions}
+              onSelect={setLeadershipRole}
+            />
+          </View>
         </View>
+
+        {leadershipRole === 'president' && (
+          <View style={[styles.row, isCompact && styles.rowCompact]}>
+            <View style={styles.fieldColumn}>
+              <AdminFormField
+                label="President Password (optional, will email if set)"
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
+            <View style={[styles.fieldColumn, { justifyContent: 'center', paddingTop: 20 }]}>
+              <TouchableOpacity
+                style={styles.generateButton}
+                onPress={generateRandomPassword}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.generateButtonText}>Generate Random Password</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={[styles.row, isCompact && styles.rowCompact]}>
           <View style={styles.fieldColumn}>
@@ -380,5 +439,17 @@ const styles = StyleSheet.create({
   saveText: {
     ...typography.bodyMedium,
     color: colors.textInverse,
+  },
+
+  generateButton: {
+    backgroundColor: colors.primaryFaded,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+  },
+  generateButtonText: {
+    ...typography.bodySmallMedium,
+    color: colors.primary,
   },
 });

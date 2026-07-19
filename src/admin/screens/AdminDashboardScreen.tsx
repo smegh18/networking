@@ -7,6 +7,7 @@ import { AdminKPICard } from '../components/ui/AdminKPICard';
 import { ADMIN_LAYOUT } from '../constants/layout';
 import { colors, typography, spacing, borderRadius, shadows } from '../../theme';
 import { getAdminDashboardStats } from '../services/adminFirestore';
+import { useAdminAuth } from '../hooks/useAdminAuth';
 import type { AdminStackParamList } from '../types/admin';
 import type { AdminDashboardStats } from '../types/admin';
 
@@ -30,6 +31,7 @@ const DEFAULT_STATS: AdminDashboardStats = {
 const AdminDashboardScreen: React.FC<Props> = () => {
   const [stats, setStats] = useState<AdminDashboardStats>(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
+  const { user, isGlobalAdmin } = useAdminAuth();
 
   useEffect(() => {
     loadStats();
@@ -38,7 +40,7 @@ const AdminDashboardScreen: React.FC<Props> = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const data = await getAdminDashboardStats();
+      const data = await getAdminDashboardStats(user || undefined, isGlobalAdmin);
       setStats(data);
     } catch (err) {
       console.error('Failed to load stats:', err);
